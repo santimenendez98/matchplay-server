@@ -48,6 +48,14 @@ export const updateAccount = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name, email, birthdate, phone } = req.body;
   try {
+    const account = await pool.query(`SELECT * FROM Account WHERE id = $1`, [
+      id,
+    ]);
+
+    if (account.rows.length === 0) {
+      return res.status(404).json({ message: "Account not found" });
+    }
+
     const fields = { name, email, birthdate, phone };
     const keys = Object.keys(fields).filter(
       (key) => fields[key as keyof typeof fields] !== undefined
