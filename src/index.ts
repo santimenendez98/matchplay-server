@@ -1,11 +1,14 @@
 import express from "express";
 import dotenv from "dotenv";
 import pool from "./db";
+import router from "./routes";
 
 const app = express();
 dotenv.config();
 
 app.use(express.json());
+
+app.use("/api", router);
 
 app.listen(Number(process.env.PORT), () => {
   pool
