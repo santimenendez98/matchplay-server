@@ -21,7 +21,7 @@ export const loginController = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    const token = generateToken(account.id);
+    const token = generateToken(account.id, account.account_type);
     const data = {
       id: account.id,
       name: account.name,

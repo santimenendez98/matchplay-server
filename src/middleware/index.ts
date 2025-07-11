@@ -30,4 +30,16 @@ export const authMiddleware = (
   }
 };
 
-export default authMiddleware;
+export const rolMiddleware = (roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || !roles.includes(req.user.rol)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    next();
+  };
+};
+
+export default {
+  authMiddleware,
+  rolMiddleware,
+};
