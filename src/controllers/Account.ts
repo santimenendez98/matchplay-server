@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import pool from "../db";
 import { hashPassword } from "../services/bcrypService";
+import { get } from "http";
 
 export const getAccounts = async (req: Request, res: Response) => {
   try {
@@ -9,6 +10,22 @@ export const getAccounts = async (req: Request, res: Response) => {
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ message: "An error ocurred", error: err.message });
+  }
+};
+
+export const getAccountById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(`SELECT * FROM Account WHERE id = $1`, [
+      id,
+    ]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Account not found" });
+    }
+    res.status(200).json({ message: "Account found", data: result.rows[0] });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
   }
 };
 
@@ -83,6 +100,7 @@ export const updateAccount = async (req: Request, res: Response) => {
 
 export default {
   getAccounts,
+  getAccountById,
   deleteAccount,
   updateAccount,
   createAccount,

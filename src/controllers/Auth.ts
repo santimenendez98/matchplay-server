@@ -24,11 +24,6 @@ export const loginController = async (req: Request, res: Response) => {
     const token = generateToken(account.id, account.account_type);
     const data = {
       id: account.id,
-      name: account.name,
-      email: account.email,
-      birthdate: account.birthdate,
-      phone: account.phone,
-      account_type: account.account_type,
       token: token,
     };
 
