@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../db";
+import { hashPassword } from "../services/bcrypService";
 
 export const getAccounts = async (req: Request, res: Response) => {
   try {
@@ -14,9 +15,10 @@ export const getAccounts = async (req: Request, res: Response) => {
 export const createAccount = async (req: Request, res: Response) => {
   const { name, email, password, birthdate, phone, account_type } = req.body;
   try {
+    const hashedPassword = await hashPassword(password);
     const result = await pool.query(
       `INSERT INTO Account (name, email, password, birthdate, phone, account_type) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [name, email, password, birthdate, phone, account_type]
+      [name, email, hashedPassword, birthdate, phone, account_type]
     );
     res.status(201).json({
       message: "Account created successfully",
