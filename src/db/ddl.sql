@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS MatchPlayer CASCADE;
 DROP TABLE IF EXISTS Match CASCADE;
 DROP TABLE IF EXISTS Reservation CASCADE;
 DROP TABLE IF EXISTS ScheduleCourt CASCADE;
+DROP TABLE IF EXISTS ScheduleCourtWeek CASCADE;
 DROP TABLE IF EXISTS Court CASCADE;
 DROP TABLE IF EXISTS Sport CASCADE;
 DROP TABLE IF EXISTS Complex CASCADE;
@@ -50,18 +51,25 @@ CREATE TABLE Court (
 
 CREATE TABLE ScheduleCourt (
   id SERIAL PRIMARY KEY,
-  court_id INTEGER NOT NULL REFERENCES Court(id),
   schedule_date DATE NOT NULL,
-  start_time TIME NOT NULL,
-  end_time TIME NOT NULL,
-  price DECIMAL(10, 2) NOT NULL,
+  schedule_time TIME NOT NULL,
   is_available BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE WeekScheduleCourt (
+  id SERIAL PRIMARY KEY,
+  schedule_court_id INTEGER NOT NULL REFERENCES ScheduleCourt(id),
+  court_id INTEGER NOT NULL REFERENCES Court(id),
+  day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
 );
 
 CREATE TABLE Reservation (
   id SERIAL PRIMARY KEY,
   schedule_id INTEGER NOT NULL REFERENCES ScheduleCourt(id),
   account_id INTEGER NOT NULL REFERENCES Account(id),
+  price DECIMAL(10, 2) NOT NULL,
+  time_reserved VARCHAR(20) NOT NULL CHECK (time_reserved IN ('1 hour', '1 hour 30 minutes')),
+  reservation_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancelled'))
 );
 
@@ -70,7 +78,7 @@ CREATE TABLE CancelRequest (
   reservation_id INTEGER NOT NULL REFERENCES Reservation(id),
   requested_by INTEGER NOT NULL REFERENCES Account(id),
   reason TEXT NOT NULL,
-  cancel_status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+  cancel_status VARCHAR(20) NOT NULL CHECK (cancel_status IN ('pending', 'approved', 'rejected')),
   requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   reviewed_by INTEGER REFERENCES Account(id),
   reviewed_at TIMESTAMP
