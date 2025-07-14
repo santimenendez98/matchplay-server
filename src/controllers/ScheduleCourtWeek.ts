@@ -1,5 +1,7 @@
 import { Response, Request } from "express";
 import pool from "../db";
+import generateScheduleForDay from "../services/scheduleService";
+import { addDays } from "date-fns";
 
 export const getScheduleCourtWeek = async (req: Request, res: Response) => {
   try {
@@ -16,6 +18,7 @@ export const getScheduleCourtWeek = async (req: Request, res: Response) => {
 export const createScheduleCourtWeek = async (req: Request, res: Response) => {
   try {
     const { court_id, day_of_week, schedule_time } = req.body;
+    const today = new Date();
 
     const newSchedule = await pool.query(
       `INSERT INTO WeekScheduleCourt (court_id, day_of_week, schedule_time) 
@@ -23,9 +26,18 @@ export const createScheduleCourtWeek = async (req: Request, res: Response) => {
       [court_id, day_of_week, schedule_time]
     );
 
+    for (let i = 0; i < 7; i++) {
+      const targetDate = addDays(today, i);
+      if (targetDate.getDay() === day_of_week) {
+        await generateScheduleForDay(targetDate);
+      }
+      targetDate.setDate(today.getDate() + i);
+      await generateScheduleForDay(targetDate);
+    }
+
     return res.status(201).json({
       message: "Schedule Court Week created successfully",
-      data: newSchedule,
+      data: newSchedule.rows[0],
     });
   } catch (error) {
     const err = error as Error;

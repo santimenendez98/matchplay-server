@@ -15,12 +15,7 @@ scheduleCourtWeekRouter.get(
   rolMiddleware(["admin"]),
   getScheduleCourtWeek
 );
-scheduleCourtWeekRouter.post(
-  "/",
-  authMiddleware,
-  rolMiddleware(["admin"]),
-  createScheduleCourtWeek
-);
+scheduleCourtWeekRouter.post("/", createScheduleCourtWeek);
 scheduleCourtWeekRouter.put(
   "/:id",
   authMiddleware,

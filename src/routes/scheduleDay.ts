@@ -10,7 +10,7 @@ import { authMiddleware, rolMiddleware } from "../middleware";
 
 export const scheduleDayRouter = Router();
 
-scheduleDayRouter.get("/", authMiddleware, getScheduleDay);
+scheduleDayRouter.get("/", getScheduleDay);
 scheduleDayRouter.post(
   "/",
   authMiddleware,
