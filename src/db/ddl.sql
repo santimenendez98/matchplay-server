@@ -8,7 +8,7 @@ DROP TABLE IF EXISTS MatchPlayer CASCADE;
 DROP TABLE IF EXISTS Match CASCADE;
 DROP TABLE IF EXISTS Reservation CASCADE;
 DROP TABLE IF EXISTS ScheduleCourt CASCADE;
-DROP TABLE IF EXISTS ScheduleCourtWeek CASCADE;
+DROP TABLE IF EXISTS WeekScheduleCourt CASCADE;
 DROP TABLE IF EXISTS Court CASCADE;
 DROP TABLE IF EXISTS Sport CASCADE;
 DROP TABLE IF EXISTS Complex CASCADE;
@@ -51,16 +51,19 @@ CREATE TABLE Court (
 
 CREATE TABLE ScheduleCourt (
   id SERIAL PRIMARY KEY,
+  court_id INTEGER NOT NULL REFERENCES Court(id),
   schedule_date DATE NOT NULL,
   schedule_time TIME NOT NULL,
-  is_available BOOLEAN NOT NULL DEFAULT TRUE
+  is_available BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE (court_id, schedule_date, schedule_time)
 );
 
 CREATE TABLE WeekScheduleCourt (
   id SERIAL PRIMARY KEY,
-  schedule_court_id INTEGER NOT NULL REFERENCES ScheduleCourt(id),
   court_id INTEGER NOT NULL REFERENCES Court(id),
   day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  schedule_time TIME NOT NULL,
+  UNIQUE(court_id, day_of_week, schedule_time)
 );
 
 CREATE TABLE Reservation (

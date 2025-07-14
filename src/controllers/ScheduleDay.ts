@@ -12,11 +12,11 @@ export const getScheduleDay = async (req: Request, res: Response) => {
 };
 
 export const createScheduleDay = async (req: Request, res: Response) => {
-  const { schedule_date, schedule_time, is_available } = req.body;
+  const { court_id, schedule_date, schedule_time, is_available } = req.body;
   try {
     const newScheduleDay = await pool.query(
-      `INSERT INTO ScheduleCourt (schedule_date, schedule_time, is_available) VALUES ($1, $2, $3) RETURNING *`,
-      [schedule_date, schedule_time, is_available]
+      `INSERT INTO ScheduleCourt (court_id, schedule_date, schedule_time, is_available) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [court_id, schedule_date, schedule_time, is_available]
     );
     res
       .status(201)
@@ -29,7 +29,7 @@ export const createScheduleDay = async (req: Request, res: Response) => {
 
 export const updateScheduleDay = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { schedule_date, schedule_time, is_available } = req.body;
+  const { court_id, schedule_date, schedule_time, is_available } = req.body;
   try {
     const scheduleDay = await pool.query(
       `SELECT * FROM ScheduleCourt WHERE id = $1`,
@@ -40,7 +40,7 @@ export const updateScheduleDay = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "ScheduleCourt not found" });
     }
 
-    const fields = { schedule_date, schedule_time, is_available };
+    const fields = { court_id, schedule_date, schedule_time, is_available };
     const keys = Object.keys(fields).filter(
       (key) => fields[key as keyof typeof fields] !== undefined
     );

@@ -5,6 +5,7 @@ import complexRouter from "./complexRouter";
 import courtRouter from "./courterRouter";
 import sportRouter from "./sportRouter";
 import scheduleDayRouter from "./scheduleDay";
+import scheduleCourtWeekRouter from "./scheduleCourtWeek";
 
 export const router = Router();
 
@@ -14,5 +15,6 @@ router.use("/complex", complexRouter);
 router.use("/court", courtRouter);
 router.use("/sport", sportRouter);
 router.use("/scheduleday", scheduleDayRouter);
+router.use("/schedulecourtweek", scheduleCourtWeekRouter);
 
 export default router;
