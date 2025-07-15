@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import pool from "./db";
 import router from "./routes";
+import { startScheduleCronJob } from "./cronjobs/scheduleGenerator";
 
 const app = express();
 dotenv.config();
@@ -15,4 +16,5 @@ app.listen(Number(process.env.PORT), () => {
     .connect()
     .then(() => console.log("Connected to the database successfully"));
   console.log(`Server is running on ${process.env.API_URL}${process.env.PORT}`);
+  startScheduleCronJob();
 });

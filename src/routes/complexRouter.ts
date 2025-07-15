@@ -10,7 +10,7 @@ import { authMiddleware, rolMiddleware } from "../middleware";
 export const complexRouter = Router();
 
 complexRouter.get("/", authMiddleware, getComplexData);
-complexRouter.post("/", createComplexData);
+complexRouter.post("/", authMiddleware, createComplexData);
 complexRouter.delete(
   "/:id",
   authMiddleware,
