@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { addDays, format } from "date-fns";
+import { addDays } from "date-fns";
 import { generateScheduleForDay } from "../services/scheduleService";
 
 export const startScheduleCronJob = () => {

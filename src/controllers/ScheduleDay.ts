@@ -12,11 +12,12 @@ export const getScheduleDay = async (req: Request, res: Response) => {
 };
 
 export const createScheduleDay = async (req: Request, res: Response) => {
-  const { court_id, schedule_date, schedule_time, is_available } = req.body;
+  const { court_id, schedule_date, schedule_time, price, is_available } =
+    req.body;
   try {
     const newScheduleDay = await pool.query(
-      `INSERT INTO ScheduleCourt (court_id, schedule_date, schedule_time, is_available) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [court_id, schedule_date, schedule_time, is_available]
+      `INSERT INTO ScheduleCourt (court_id, schedule_date, schedule_time, price, is_available) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [court_id, schedule_date, schedule_time, price, is_available]
     );
     res
       .status(201)

@@ -17,13 +17,13 @@ export const getScheduleCourtWeek = async (req: Request, res: Response) => {
 
 export const createScheduleCourtWeek = async (req: Request, res: Response) => {
   try {
-    const { court_id, day_of_week, schedule_time } = req.body;
+    const { court_id, day_of_week, schedule_time, price } = req.body;
     const today = new Date();
 
     const newSchedule = await pool.query(
-      `INSERT INTO WeekScheduleCourt (court_id, day_of_week, schedule_time) 
-       VALUES ($1, $2, $3) RETURNING *`,
-      [court_id, day_of_week, schedule_time]
+      `INSERT INTO WeekScheduleCourt (court_id, day_of_week, schedule_time, price) 
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [court_id, day_of_week, schedule_time, price]
     );
 
     for (let i = 0; i < 7; i++) {

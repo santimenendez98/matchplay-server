@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS HistoryCancelReservation CASCADE;
 DROP TABLE IF EXISTS MessageMatch CASCADE;
 DROP TABLE IF EXISTS Refund CASCADE;
 DROP TABLE IF EXISTS Payment CASCADE;
+DROP TABLE IF EXISTS CancelRequest CASCADE;
 DROP TABLE IF EXISTS PreRegistration CASCADE;
 DROP TABLE IF EXISTS MatchPlayer CASCADE;
 DROP TABLE IF EXISTS Match CASCADE;
@@ -49,21 +50,23 @@ CREATE TABLE Court (
   image_url VARCHAR(255)
 );
 
-CREATE TABLE ScheduleCourt (
-  id SERIAL PRIMARY KEY,
-  court_id INTEGER NOT NULL REFERENCES Court(id),
-  schedule_date DATE NOT NULL,
-  schedule_time TIME NOT NULL,
-  is_available BOOLEAN NOT NULL DEFAULT TRUE,
-  UNIQUE (court_id, schedule_date, schedule_time)
-);
-
 CREATE TABLE WeekScheduleCourt (
   id SERIAL PRIMARY KEY,
   court_id INTEGER NOT NULL REFERENCES Court(id),
   day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
   schedule_time TIME NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
   UNIQUE(court_id, day_of_week, schedule_time)
+);
+
+CREATE TABLE ScheduleCourt (
+  id SERIAL PRIMARY KEY,
+  court_id INTEGER NOT NULL REFERENCES Court(id),
+  schedule_date DATE NOT NULL,
+  schedule_time TIME NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  is_available BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE (court_id, schedule_date, schedule_time)
 );
 
 CREATE TABLE Reservation (
@@ -142,11 +145,9 @@ CREATE TABLE MessageMatch (
 
 CREATE TABLE HistoryCancelReservation (
   id SERIAL PRIMARY KEY,
-  reservation_id INTEGER,
-  match_id INTEGER,
+  reservation_id INTEGER REFERENCES Reservation(id),
+  match_id INTEGER REFERENCES Match(id),
   cancelled_by INTEGER NOT NULL REFERENCES Account(id),
   cancellation_reason TEXT NOT NULL,
-  cancellation_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (reservation_id) REFERENCES Reservation(id),
-  FOREIGN KEY (match_id) REFERENCES Match(id)
+  cancellation_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
