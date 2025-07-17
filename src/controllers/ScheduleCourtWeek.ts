@@ -17,13 +17,32 @@ export const getScheduleCourtWeek = async (req: Request, res: Response) => {
 
 export const createScheduleCourtWeek = async (req: Request, res: Response) => {
   try {
-    const { court_id, day_of_week, schedule_time, price } = req.body;
+    const { court_id, day_of_week, start_time, end_time, price } = req.body;
     const today = new Date();
 
+    const overlappingSchedules = await pool.query(
+      `SELECT * FROM WeekScheduleCourt 
+       WHERE court_id = $1 AND day_of_week = $2 
+       AND ((end_time > $3 AND start_time < $4) OR (start_time < $4 AND end_time > $3))`,
+      [court_id, day_of_week, start_time, end_time]
+    );
+
+    if (start_time >= end_time) {
+      return res
+        .status(400)
+        .json({ message: "Start time must be before end time" });
+    }
+
+    if (overlappingSchedules.rows.length > 0) {
+      return res.status(400).json({
+        message: "Schedule overlaps with existing schedule for this court",
+      });
+    }
+
     const newSchedule = await pool.query(
-      `INSERT INTO WeekScheduleCourt (court_id, day_of_week, schedule_time, price) 
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [court_id, day_of_week, schedule_time, price]
+      `INSERT INTO WeekScheduleCourt (court_id, day_of_week, start_time, end_time, price) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [court_id, day_of_week, start_time, end_time, price]
     );
 
     for (let i = 0; i < 7; i++) {
@@ -49,7 +68,7 @@ export const createScheduleCourtWeek = async (req: Request, res: Response) => {
 
 export const updateScheduleCourtWeek = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { court_id, day_of_week, schedule_time } = req.body;
+  const { court_id, day_of_week, start_time, end_time } = req.body;
   try {
     const scheduleCourtWeek = await pool.query(
       `SELECT * FROM WeekScheduleCourt WHERE id = $1`,
@@ -60,7 +79,7 @@ export const updateScheduleCourtWeek = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "WeekScheduleCourt not found" });
     }
 
-    const fields = { court_id, day_of_week, schedule_time };
+    const fields = { court_id, day_of_week, start_time, end_time };
     const keys = Object.keys(fields).filter(
       (key) => fields[key as keyof typeof fields] !== undefined
     );

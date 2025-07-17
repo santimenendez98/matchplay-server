@@ -54,19 +54,21 @@ CREATE TABLE WeekScheduleCourt (
   id SERIAL PRIMARY KEY,
   court_id INTEGER NOT NULL REFERENCES Court(id),
   day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
-  schedule_time TIME NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
   price DECIMAL(10, 2) NOT NULL,
-  UNIQUE(court_id, day_of_week, schedule_time)
+  UNIQUE(court_id, day_of_week, start_time, end_time)
 );
 
 CREATE TABLE ScheduleCourt (
   id SERIAL PRIMARY KEY,
   court_id INTEGER NOT NULL REFERENCES Court(id),
   schedule_date DATE NOT NULL,
-  schedule_time TIME NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
   price DECIMAL(10, 2) NOT NULL,
   is_available BOOLEAN NOT NULL DEFAULT TRUE,
-  UNIQUE (court_id, schedule_date, schedule_time)
+  UNIQUE (court_id, schedule_date, start_time, end_time)
 );
 
 CREATE TABLE Reservation (
@@ -74,9 +76,11 @@ CREATE TABLE Reservation (
   schedule_id INTEGER NOT NULL REFERENCES ScheduleCourt(id),
   account_id INTEGER NOT NULL REFERENCES Account(id),
   price DECIMAL(10, 2) NOT NULL,
-  time_reserved VARCHAR(20) NOT NULL CHECK (time_reserved IN ('1 hour', '1 hour 30 minutes')),
-  reservation_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancelled'))
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  time_reserved DECIMAL(10,1) NOT NULL CHECK (time_reserved IN (1, 1.5)),
+  reservation_date DATE NOT NULL,
+  status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancelled')) DEFAULT 'pending'
 );
 
 CREATE TABLE CancelRequest (
