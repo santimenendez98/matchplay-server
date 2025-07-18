@@ -1,5 +1,3 @@
-import { ParamsDictionary } from "express-serve-static-core";
-
 export interface scheduleDayModel {
   id?: number | string;
   court_id: number;
@@ -20,18 +18,9 @@ export type scheduleDeleteModelSuccess = {
   data: scheduleDayModel;
 };
 
-export interface scheduleDayModelError {
-  message: string;
-  error: string;
-}
-
-export interface scheduleDayParams extends ParamsDictionary {
-  id: string;
-}
-
 export type updateScheduleDayModel = Pick<
   scheduleDayModel,
-  "id" | "court_id" | "start_time" | "end_time" | "price" | "is_available"
+  "court_id" | "start_time" | "end_time" | "price" | "is_available"
 >;
 
 export type createScheduleDayModel = Omit<

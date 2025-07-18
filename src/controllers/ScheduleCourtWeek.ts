@@ -1,5 +1,5 @@
 import { Response, Request } from "express";
-import pool from "../db";
+import pool from "../db/connection";
 import generateScheduleForDay from "../services/scheduleService";
 import { addDays } from "date-fns";
 import {

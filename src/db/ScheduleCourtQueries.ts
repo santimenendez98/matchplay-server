@@ -1,5 +1,5 @@
 // repositories/scheduleCourt.repository.ts
-import pool from "../db";
+import pool from "./connection";
 import { scheduleDayModel } from "../types/ScheduleCourt";
 
 export const getAllSchedules = () =>
@@ -46,12 +46,3 @@ export const getOverlappingSchedules = (
     `SELECT * FROM ScheduleCourt WHERE court_id = $1 AND is_available = TRUE AND start_time >= $2 AND end_time <= $3`,
     [court_id, start_time, end_time]
   );
-
-export default {
-  getAllSchedules,
-  getScheduleById,
-  insertSchedule,
-  deleteScheduleById,
-  updateScheduleById,
-  getOverlappingSchedules,
-};

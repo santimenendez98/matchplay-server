@@ -1,6 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
-import pool from "./db";
+import pool from "./db/connection";
 import router from "./routes";
 import { startScheduleCronJob } from "./cronjobs/scheduleGenerator";
 

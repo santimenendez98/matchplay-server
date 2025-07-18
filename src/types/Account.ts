@@ -1,5 +1,3 @@
-import { ParamsDictionary } from "express-serve-static-core";
-
 export interface AccountModel {
   id?: number;
   name: string;
@@ -20,16 +18,7 @@ export interface AccountGetModelSuccess {
   data: AccountModel;
 }
 
-export interface AccountModelError {
-  message: string;
-  error: string;
-}
-
-export interface AccountParams extends ParamsDictionary {
-  id: string;
-}
-
 export type UpdateAccountModel = Pick<
   AccountModel,
-  "id" | "name" | "email" | "birthdate" | "phone" | "account_type"
+  "name" | "email" | "birthdate" | "phone" | "account_type"
 >;

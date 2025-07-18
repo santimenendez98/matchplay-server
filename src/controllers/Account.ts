@@ -2,12 +2,11 @@ import { Request, Response } from "express";
 import { hashPassword } from "../services/bcrypService";
 import {
   AccountModel,
-  AccountModelError,
   AccountModelSuccess,
-  AccountParams,
   AccountGetModelSuccess,
   UpdateAccountModel,
 } from "../types/Account";
+import { paramsModels, errorResponseModel } from "../types/index";
 import {
   getAllAccountsQuery,
   getAccountByIdQuery,
@@ -18,7 +17,7 @@ import {
 
 export const getAccounts = async (
   req: Request,
-  res: Response<AccountModelSuccess | AccountModelError>
+  res: Response<AccountModelSuccess | errorResponseModel>
 ) => {
   try {
     const accounts = await getAllAccountsQuery();
@@ -30,8 +29,8 @@ export const getAccounts = async (
 };
 
 export const getAccountById = async (
-  req: Request<AccountParams>,
-  res: Response<AccountGetModelSuccess | AccountModelError>
+  req: Request<paramsModels>,
+  res: Response<AccountGetModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
   try {
@@ -49,8 +48,8 @@ export const getAccountById = async (
 };
 
 export const createAccount = async (
-  req: Request<AccountModel>,
-  res: Response<AccountGetModelSuccess | AccountModelError>
+  req: Request<{}, {}, AccountModel>,
+  res: Response<AccountGetModelSuccess | errorResponseModel>
 ) => {
   const { name, email, password, birthdate, phone, account_type } = req.body;
   try {
@@ -75,8 +74,8 @@ export const createAccount = async (
 };
 
 export const deleteAccount = async (
-  req: Request<AccountParams>,
-  res: Response<AccountModelSuccess | AccountModelError>
+  req: Request<paramsModels>,
+  res: Response<AccountModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
   try {
@@ -96,8 +95,8 @@ export const deleteAccount = async (
 };
 
 export const updateAccount = async (
-  req: Request<AccountParams, UpdateAccountModel>,
-  res: Response<AccountModelSuccess | AccountModelError>
+  req: Request<paramsModels, UpdateAccountModel>,
+  res: Response<AccountModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
   const { name, email, birthdate, phone } = req.body;

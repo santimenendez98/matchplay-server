@@ -13,8 +13,3 @@ export interface AuthModelSuccess {
   message: string;
   data: AuthResponse;
 }
-
-export interface AuthModelError {
-  message: string;
-  error: string;
-}

@@ -1,12 +1,13 @@
 import { Request, Response } from "express";
 import { verifyPassword } from "../services/bcrypService";
 import { generateToken } from "../services/jwtService";
-import { AuthModel, AuthModelError, AuthModelSuccess } from "../types/Auth";
+import { AuthModel, AuthModelSuccess } from "../types/Auth";
 import { getAccountByEmailQuery } from "../db/AccountQueries";
+import { errorResponseModel } from "../types";
 
 export const loginController = async (
-  req: Request<AuthModel>,
-  res: Response<AuthModelSuccess | AuthModelError>
+  req: Request<{}, {}, AuthModel>,
+  res: Response<AuthModelSuccess | errorResponseModel>
 ) => {
   const { email, password } = req.body;
   try {

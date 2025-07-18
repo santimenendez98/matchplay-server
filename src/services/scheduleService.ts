@@ -1,5 +1,5 @@
 // src/services/scheduleService.ts
-import pool from "../db";
+import pool from "../db/connection";
 import { getDay } from "date-fns";
 
 export const generateScheduleForDay = async (date: Date) => {

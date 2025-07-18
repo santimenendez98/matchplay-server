@@ -1,5 +1,5 @@
 import { Response, Request } from "express";
-import pool from "../db";
+import pool from "../db/connection";
 import { addMinutesToTime } from "../services/addMinutes";
 
 export const getReservations = async (req: Request, res: Response) => {

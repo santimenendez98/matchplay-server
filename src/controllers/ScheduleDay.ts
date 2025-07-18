@@ -1,13 +1,12 @@
 import { Request, Response } from "express";
 import {
   scheduleDayModelSuccess,
-  scheduleDayModelError,
   updateScheduleDayModel,
   createScheduleDayModel,
   schedulePostDayModelSuccess,
   scheduleDeleteModelSuccess,
-  scheduleDayParams,
 } from "../types/ScheduleCourt";
+import { errorResponseModel, paramsModels } from "../types";
 import {
   getAllSchedules,
   insertSchedule,
@@ -19,7 +18,7 @@ import {
 
 export const getScheduleDay = async (
   req: Request,
-  res: Response<scheduleDayModelSuccess | scheduleDayModelError>
+  res: Response<scheduleDayModelSuccess | errorResponseModel>
 ) => {
   try {
     const scheduleDay = await getAllSchedules();
@@ -32,7 +31,7 @@ export const getScheduleDay = async (
 
 export const createScheduleDay = async (
   req: Request<{}, {}, createScheduleDayModel>,
-  res: Response<schedulePostDayModelSuccess | scheduleDayModelError>
+  res: Response<schedulePostDayModelSuccess | errorResponseModel>
 ) => {
   const { court_id, schedule_date, start_time, end_time, price } = req.body;
   try {
@@ -54,11 +53,11 @@ export const createScheduleDay = async (
 
 export const updateScheduleDay = async (
   req: Request<
-    scheduleDayParams,
-    scheduleDayModelSuccess | scheduleDayModelError,
+    paramsModels,
+    scheduleDayModelSuccess | errorResponseModel,
     updateScheduleDayModel
   >,
-  res: Response<scheduleDayModelSuccess | scheduleDayModelError>
+  res: Response<scheduleDayModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
   const { court_id, start_time, end_time, price } = req.body;
@@ -120,8 +119,8 @@ export const updateScheduleDay = async (
 };
 
 export const deleteScheduleDay = async (
-  req: Request<scheduleDayParams>,
-  res: Response<scheduleDeleteModelSuccess | scheduleDayModelError>
+  req: Request<paramsModels>,
+  res: Response<scheduleDeleteModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
   try {

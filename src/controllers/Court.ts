@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import pool from "../db";
+import pool from "../db/connection";
 
 export const getCourts = async (req: Request, res: Response) => {
   try {
