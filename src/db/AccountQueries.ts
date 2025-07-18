@@ -25,3 +25,6 @@ export const deleteAccountQuery = (id: number | string) =>
 
 export const updateAccoutQuery = (query: string, values: any[]) =>
   pool.query<AccountModel[]>(query, values);
+
+export const getAccountByEmailQuery = (email: string) =>
+  pool.query<AccountModel>(`SELECT * FROM Account WHERE email = $1`, [email]);

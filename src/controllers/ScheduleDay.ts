@@ -1,7 +1,5 @@
-import { Request, RequestHandler, Response } from "express";
-import pool from "../db";
+import { Request, Response } from "express";
 import {
-  scheduleDayModel,
   scheduleDayModelSuccess,
   scheduleDayModelError,
   updateScheduleDayModel,

@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import pool from "../db";
 import { hashPassword } from "../services/bcrypService";
 import {
   AccountModel,
