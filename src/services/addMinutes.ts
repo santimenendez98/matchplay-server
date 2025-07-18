@@ -12,4 +12,17 @@ export const addMinutesToTime = (
   return `${hh}:${mm}`;
 };
 
-export default addMinutesToTime;
+export const parseTimeToDate = (time: string): Date => {
+  return new Date(`1970-01-01T${time}:00Z`);
+};
+
+export const timeToMinutes = (time: string): number => {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+};
+
+export default {
+  addMinutesToTime,
+  parseTimeToDate,
+  timeToMinutes,
+};

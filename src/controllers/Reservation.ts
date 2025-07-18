@@ -29,30 +29,23 @@ export const createReservation = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Hour not found" });
     }
 
-    const schedule = scheduleRes.rows[0];
-    const end_time =
-      time_reserved === 1
-        ? addMinutesToTime(schedule.start_time, 60)
-        : addMinutesToTime(schedule.start_time, 90);
+    const time = time_reserved === 1 ? 60 : 90;
+    const start_time = scheduleRes.rows[0].start_time;
+    const end_time = addMinutesToTime(start_time, time);
 
-    // Check if the reservation overlaps with existing reservations
-    const overlappingRes = await pool.query(
-      `SELECT * FROM ScheduleCourt
-       WHERE court_id = $1
-         AND schedule_date = $2
-         AND is_available = TRUE
-         AND $3 < end_time AND $4 > start_time`,
-      [schedule.court_id, schedule.schedule_date, schedule.start_time, end_time]
+    const scheduleReserve = await pool.query(
+      `SELECT * FROM ScheduleCourt WHERE is_available = TRUE AND start_time >= $1 AND end_time <= $2 `,
+      [start_time, end_time]
     );
 
-    if (overlappingRes.rows.length === 0) {
-      return res.status(400).json({
-        message: "No hay horarios disponibles para la duración solicitada",
-      });
+    if (scheduleReserve.rows.length < 2) {
+      return res
+        .status(400)
+        .json({ message: "No available slots for this time" });
     }
 
     // Calculate the total price
-    const totalPrice = schedule.price * time_reserved;
+    const totalPrice = scheduleRes.rows[0].price * time_reserved;
 
     // Insert the reservation
     const result = await pool.query(
@@ -63,7 +56,7 @@ export const createReservation = async (req: Request, res: Response) => {
         schedule_id,
         account_id,
         totalPrice,
-        schedule.start_time,
+        start_time,
         end_time,
         time_reserved,
         today.toISOString().split("T")[0],
@@ -72,7 +65,7 @@ export const createReservation = async (req: Request, res: Response) => {
 
     // Update the availability of the schedule
     await Promise.all(
-      overlappingRes.rows.map((row) =>
+      scheduleReserve.rows.map((row) =>
         pool.query(
           "UPDATE ScheduleCourt SET is_available = FALSE WHERE id = $1",
           [row.id]
