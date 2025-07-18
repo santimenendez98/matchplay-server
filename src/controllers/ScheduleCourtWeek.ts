@@ -1,18 +1,30 @@
 import { Response, Request } from "express";
-import pool from "../db/connection";
 import generateScheduleForDay from "../services/scheduleService";
 import { addDays } from "date-fns";
+import { addMinutesToTime, timeToMinutes } from "../services/addMinutes";
 import {
-  addMinutesToTime,
-  parseTimeToDate,
-  timeToMinutes,
-} from "../services/addMinutes";
+  WeekScheduleCourtModel,
+  WeekScheduleCourtGetModelSuccess,
+  WeekScheduleCourtModelSuccess,
+  updateWeekScheduleCourtModel,
+} from "../types/ScheduleWeekCourt";
+import { paramsModels, errorResponseModel } from "../types";
+import {
+  getAllScheduleCourtWeekQuery,
+  createScheduleCourtWeekQuery,
+  deleteScheduleCourtWeekQuery,
+  updateScheduleCourtWeekQuery,
+  overlappingSchedulesQuery,
+  getWeekScheduleCourtByIdQuery,
+  existingOneOverlappingQuery,
+} from "../db/ScheduleCourtWeekQueries";
 
-export const getScheduleCourtWeek = async (req: Request, res: Response) => {
+export const getScheduleCourtWeek = async (
+  req: Request,
+  res: Response<WeekScheduleCourtModelSuccess | errorResponseModel>
+) => {
   try {
-    const schedule = await pool.query(
-      `SELECT * FROM WeekScheduleCourt ORDER BY day_of_week ASC, start_time ASC`
-    );
+    const schedule = await getAllScheduleCourtWeekQuery();
     res
       .status(200)
       .json({ message: "Schedule Court Week List", data: schedule.rows });
@@ -22,35 +34,42 @@ export const getScheduleCourtWeek = async (req: Request, res: Response) => {
   }
 };
 
-export const createScheduleCourtWeek = async (req: Request, res: Response) => {
+export const createScheduleCourtWeek = async (
+  req: Request<{}, {}, WeekScheduleCourtModel>,
+  res: Response<WeekScheduleCourtGetModelSuccess | errorResponseModel>
+) => {
   try {
     const { court_id, day_of_week, start_time, end_time, price } = req.body;
     const today = new Date();
 
-    const overlappingSchedules = await pool.query(
-      `SELECT * FROM WeekScheduleCourt 
-       WHERE court_id = $1 AND day_of_week = $2 
-       AND ((end_time > $3 AND start_time < $4) OR (start_time < $4 AND end_time > $3))`,
-      [court_id, day_of_week, start_time, end_time]
+    const overlappingSchedules = await overlappingSchedulesQuery(
+      court_id,
+      day_of_week,
+      start_time,
+      end_time
     );
 
     if (start_time >= end_time) {
-      return res
-        .status(400)
-        .json({ message: "Start time must be before end time" });
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Start time must be before end time",
+      });
     }
 
     if (overlappingSchedules.rows.length > 0) {
       return res.status(400).json({
-        message: "Schedule overlaps with existing schedule for this court",
+        message: "An error ocurred",
+        error: "Schedule overlaps with existing schedule for this court",
       });
     }
 
-    const newSchedule = await pool.query(
-      `INSERT INTO WeekScheduleCourt (court_id, day_of_week, start_time, end_time, price) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [court_id, day_of_week, start_time, end_time, price]
-    );
+    const newSchedule = await createScheduleCourtWeekQuery({
+      court_id,
+      day_of_week,
+      start_time,
+      end_time,
+      price,
+    });
 
     for (let i = 0; i < 7; i++) {
       const targetDate = addDays(today, i);
@@ -73,35 +92,41 @@ export const createScheduleCourtWeek = async (req: Request, res: Response) => {
   }
 };
 
-export const updateScheduleCourtWeek = async (req: Request, res: Response) => {
+export const updateScheduleCourtWeek = async (
+  req: Request<paramsModels, {}, updateWeekScheduleCourtModel>,
+  res: Response<WeekScheduleCourtModelSuccess | errorResponseModel>
+) => {
   const { id } = req.params;
-  const { court_id, day_of_week, start_time, end_time } = req.body;
+  const { court_id, day_of_week, start_time, end_time, price } = req.body;
   try {
-    const scheduleCourtWeek = await pool.query(
-      `SELECT * FROM WeekScheduleCourt WHERE id = $1`,
-      [id]
-    );
+    const scheduleCourtWeek = await getWeekScheduleCourtByIdQuery(id);
 
     if (scheduleCourtWeek.rows.length === 0) {
-      return res.status(404).json({ message: "WeekScheduleCourt not found" });
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "WeekScheduleCourt not found",
+      });
     }
 
-    const fields = { court_id, day_of_week, start_time, end_time };
+    const fields = { court_id, day_of_week, start_time, end_time, price };
     const keys = Object.keys(fields).filter(
       (key) => fields[key as keyof typeof fields] !== undefined
     );
 
     if (keys.length === 0) {
-      return res.status(400).json({ message: "No fields to update" });
+      return res
+        .status(400)
+        .json({ message: "An error ocurred", error: "No fields to update" });
     }
     const setClause = keys.map((key, idx) => `${key} = $${idx + 1}`).join(", ");
     const values = keys.map((key) => fields[key as keyof typeof fields]);
 
-    const query = `UPDATE WeekScheduleCourt SET ${setClause} WHERE id = $${
-      keys.length + 1
-    } RETURNING *`;
-
-    const result = await pool.query(query, [...values, id]);
+    const result = await updateScheduleCourtWeekQuery(
+      `UPDATE WeekScheduleCourt SET ${setClause} WHERE id = $${
+        keys.length + 1
+      } RETURNING *`,
+      [...values, id]
+    );
     res.status(200).json({
       message: "WeekScheduleCourt updated successfully",
       data: result.rows[0],
@@ -112,15 +137,19 @@ export const updateScheduleCourtWeek = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteScheduleCourtWeek = async (req: Request, res: Response) => {
+export const deleteScheduleCourtWeek = async (
+  req: Request<paramsModels>,
+  res: Response<WeekScheduleCourtGetModelSuccess | errorResponseModel>
+) => {
   const { id } = req.params;
   try {
-    const deletedSchedule = await pool.query(
-      `DELETE FROM WeekScheduleCourt WHERE id = $1 RETURNING *`,
-      [id]
-    );
+    const deletedSchedule = await deleteScheduleCourtWeekQuery(id);
+
     if (deletedSchedule.rows.length === 0) {
-      return res.status(404).json({ message: "WeekScheduleCourt not found" });
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "WeekScheduleCourt not found",
+      });
     }
     res.status(200).json({
       message: "WeekScheduleCourt deleted",
@@ -133,49 +162,55 @@ export const deleteScheduleCourtWeek = async (req: Request, res: Response) => {
 };
 
 export const generateScheduleCourtWeek = async (
-  req: Request,
-  res: Response
+  req: Request<{}, {}, WeekScheduleCourtModel>,
+  res: Response<WeekScheduleCourtGetModelSuccess | errorResponseModel>
 ) => {
   const { court_id, day_of_week, start_time, end_time, price } = req.body;
   const today = new Date();
 
   try {
-    // Validación básica de horarios
+    // Validation of day_of_week
     if (timeToMinutes(start_time) >= timeToMinutes(end_time)) {
-      return res
-        .status(400)
-        .json({ message: "La hora de inicio debe ser menor a la de fin." });
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "La hora de inicio debe ser menor a la de fin.",
+      });
     }
 
-    // Verificar si hay superposición con horarios ya existentes
-    const { rows } = await pool.query(
-      `SELECT 1 FROM WeekScheduleCourt
-       WHERE court_id = $1 AND day_of_week = $2
-       AND start_time < $4 AND end_time > $3`,
-      [court_id, day_of_week, start_time, end_time]
+    // Verifay if the schedule overlaps with existing schedules
+    const { rows } = await existingOneOverlappingQuery(
+      court_id,
+      day_of_week,
+      start_time,
+      end_time
     );
 
+    // If there are overlapping schedules, return an error
     if (rows.length > 0) {
-      return res
-        .status(400)
-        .json({ message: "El horario se superpone con uno ya existente." });
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "El horario se superpone con uno ya existente.",
+      });
     }
 
-    // Generar bloques de 30 minutos
+    // Generate the schedule for the specified court
     let currentTime = start_time;
+
     while (timeToMinutes(currentTime) + 30 <= timeToMinutes(end_time)) {
       const nextTime = addMinutesToTime(currentTime, 30);
 
-      await pool.query(
-        `INSERT INTO WeekScheduleCourt (court_id, day_of_week, start_time, end_time, price)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [court_id, day_of_week, currentTime, nextTime, price]
-      );
+      await createScheduleCourtWeekQuery({
+        court_id,
+        day_of_week,
+        start_time: currentTime,
+        end_time: nextTime,
+        price,
+      });
 
       currentTime = nextTime;
     }
 
-    // Generar horarios reales para los próximos 7 días
+    // Generate the schedule for the next 7 days
     for (let i = 0; i < 7; i++) {
       const date = addDays(today, i);
       if (date.getDay() === day_of_week) {
@@ -183,9 +218,10 @@ export const generateScheduleCourtWeek = async (
       }
     }
 
-    res
-      .status(201)
-      .json({ message: "Horario semanal generado correctamente." });
+    res.status(201).json({
+      message: "An error ocurred",
+      error: "Horario semanal generado correctamente.",
+    });
   } catch (error) {
     res.status(500).json({
       message: "Error al generar el horario",
