@@ -1,9 +1,22 @@
 import { Request, Response } from "express";
-import pool from "../db/connection";
+import {
+  SportModel,
+  SportGetModelSuccess,
+  SportModelSuccess,
+} from "../types/Sport";
+import { errorResponseModel, paramsModels } from "../types";
+import {
+  createSportQuery,
+  getAllSportsQuery,
+  deleteSportQuery,
+} from "../db/SportQueries";
 
-export const getSports = async (req: Request, res: Response) => {
+export const getSports = async (
+  req: Request,
+  res: Response<SportModelSuccess | errorResponseModel>
+) => {
   try {
-    const sports = await pool.query(`SELECT * FROM Sport`);
+    const sports = await getAllSportsQuery();
     res.status(200).json({ message: "Sport List", data: sports.rows });
   } catch (error) {
     const err = error as Error;
@@ -11,15 +24,13 @@ export const getSports = async (req: Request, res: Response) => {
   }
 };
 
-export const createSport = async (req: Request, res: Response) => {
+export const createSport = async (
+  req: Request<{}, {}, SportModel>,
+  res: Response<SportGetModelSuccess | errorResponseModel>
+) => {
   const { name, max_players } = req.body;
   try {
-    const nameLowerCase = name.toLowerCase();
-
-    const newSport = await pool.query(
-      `INSERT INTO Sport (name, max_players) VALUES ($1, $2) RETURNING *`,
-      [nameLowerCase, max_players]
-    );
+    const newSport = await createSportQuery(name, max_players);
     res.status(201).json({ message: "Sport created", data: newSport.rows[0] });
   } catch (error) {
     const err = error as Error;
@@ -27,15 +38,17 @@ export const createSport = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteSport = async (req: Request, res: Response) => {
+export const deleteSport = async (
+  req: Request<paramsModels>,
+  res: Response<SportGetModelSuccess | errorResponseModel>
+) => {
   const { id } = req.params;
   try {
-    const deletedSport = await pool.query(
-      `DELETE FROM Sport WHERE id = $1 RETURNING *`,
-      [id]
-    );
+    const deletedSport = await deleteSportQuery(Number(id));
     if (deletedSport.rows.length === 0) {
-      return res.status(404).json({ message: "Sport not found" });
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Sport not found" });
     }
     res
       .status(200)
