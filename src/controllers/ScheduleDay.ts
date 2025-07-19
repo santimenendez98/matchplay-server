@@ -1,9 +1,27 @@
 import { Request, Response } from "express";
-import pool from "../db";
+import {
+  scheduleDayModelSuccess,
+  updateScheduleDayModel,
+  createScheduleDayModel,
+  schedulePostDayModelSuccess,
+  scheduleDeleteModelSuccess,
+} from "../types/ScheduleCourt";
+import { errorResponseModel, paramsModels } from "../types";
+import {
+  getAllSchedules,
+  insertSchedule,
+  getScheduleById,
+  deleteScheduleById,
+  updateScheduleById,
+  getOverlappingSchedules,
+} from "../db/ScheduleCourtQueries";
 
-export const getScheduleDay = async (req: Request, res: Response) => {
+export const getScheduleDay = async (
+  req: Request,
+  res: Response<scheduleDayModelSuccess | errorResponseModel>
+) => {
   try {
-    const scheduleDay = await pool.query(`SELECT * FROM ScheduleCourt`);
+    const scheduleDay = await getAllSchedules();
     res.status(200).json({ message: "Court List", data: scheduleDay.rows });
   } catch (error) {
     const err = error as Error;
@@ -11,14 +29,19 @@ export const getScheduleDay = async (req: Request, res: Response) => {
   }
 };
 
-export const createScheduleDay = async (req: Request, res: Response) => {
-  const { court_id, schedule_date, schedule_time, price, is_available } =
-    req.body;
+export const createScheduleDay = async (
+  req: Request<{}, {}, createScheduleDayModel>,
+  res: Response<schedulePostDayModelSuccess | errorResponseModel>
+) => {
+  const { court_id, schedule_date, start_time, end_time, price } = req.body;
   try {
-    const newScheduleDay = await pool.query(
-      `INSERT INTO ScheduleCourt (court_id, schedule_date, schedule_time, price, is_available) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [court_id, schedule_date, schedule_time, price, is_available]
-    );
+    const newScheduleDay = await insertSchedule({
+      court_id,
+      schedule_date,
+      start_time,
+      end_time,
+      price,
+    });
     res
       .status(201)
       .json({ message: "Schedule Day created", data: newScheduleDay.rows[0] });
@@ -28,35 +51,63 @@ export const createScheduleDay = async (req: Request, res: Response) => {
   }
 };
 
-export const updateScheduleDay = async (req: Request, res: Response) => {
+export const updateScheduleDay = async (
+  req: Request<
+    paramsModels,
+    scheduleDayModelSuccess | errorResponseModel,
+    updateScheduleDayModel
+  >,
+  res: Response<scheduleDayModelSuccess | errorResponseModel>
+) => {
   const { id } = req.params;
-  const { court_id, schedule_date, schedule_time, is_available } = req.body;
+  const { court_id, start_time, end_time, price } = req.body;
   try {
-    const scheduleDay = await pool.query(
-      `SELECT * FROM ScheduleCourt WHERE id = $1`,
-      [id]
-    );
+    const scheduleDay = await getScheduleById(id);
 
     if (scheduleDay.rows.length === 0) {
-      return res.status(404).json({ message: "ScheduleCourt not found" });
+      return res
+        .status(404)
+        .json({ message: "Error", error: "ScheduleCourt not found" });
     }
 
-    const fields = { court_id, schedule_date, schedule_time, is_available };
+    const overlappingSchedules = await getOverlappingSchedules(
+      court_id,
+      start_time,
+      end_time
+    );
+
+    if (overlappingSchedules.rows.length > 0) {
+      return res.status(400).json({
+        message: "Error",
+        error: "Schedule overlaps with existing schedule for this court",
+      });
+    }
+
+    const fields = {
+      court_id,
+      start_time,
+      end_time,
+      price,
+    };
     const keys = Object.keys(fields).filter(
       (key) => fields[key as keyof typeof fields] !== undefined
     );
 
     if (keys.length === 0) {
-      return res.status(400).json({ message: "No fields to update" });
+      return res
+        .status(400)
+        .json({ message: "Error", error: "No fields to update" });
     }
     const setClause = keys.map((key, idx) => `${key} = $${idx + 1}`).join(", ");
     const values = keys.map((key) => fields[key as keyof typeof fields]);
 
-    const query = `UPDATE ScheduleCourt SET ${setClause} WHERE id = $${
-      keys.length + 1
-    } RETURNING *`;
+    const result = await updateScheduleById(
+      `UPDATE ScheduleCourt SET ${setClause} WHERE id = $${
+        keys.length + 1
+      } RETURNING *`,
+      [...values, id]
+    );
 
-    const result = await pool.query(query, [...values, id]);
     res.status(200).json({
       message: "ScheduleCourt updated successfully",
       data: result.rows[0],
@@ -67,15 +118,18 @@ export const updateScheduleDay = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteScheduleDay = async (req: Request, res: Response) => {
+export const deleteScheduleDay = async (
+  req: Request<paramsModels>,
+  res: Response<scheduleDeleteModelSuccess | errorResponseModel>
+) => {
   const { id } = req.params;
   try {
-    const deletedScheduleDay = await pool.query(
-      `DELETE FROM ScheduleCourt WHERE id = $1 RETURNING *`,
-      [id]
-    );
+    const deletedScheduleDay = await deleteScheduleById(id);
+
     if (deletedScheduleDay.rows.length === 0) {
-      return res.status(404).json({ message: "ScheduleCourt not found" });
+      return res
+        .status(404)
+        .json({ message: "Error", error: "ScheduleCourt not found" });
     }
     res.status(200).json({
       message: "ScheduleCourt deleted",

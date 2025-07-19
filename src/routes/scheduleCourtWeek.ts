@@ -4,6 +4,7 @@ import {
   getScheduleCourtWeek,
   updateScheduleCourtWeek,
   deleteScheduleCourtWeek,
+  generateScheduleCourtWeek,
 } from "../controllers/ScheduleCourtWeek";
 import { authMiddleware, rolMiddleware } from "../middleware";
 
@@ -20,6 +21,12 @@ scheduleCourtWeekRouter.post(
   authMiddleware,
   rolMiddleware(["admin"]),
   createScheduleCourtWeek
+);
+scheduleCourtWeekRouter.post(
+  "/generate",
+  authMiddleware,
+  rolMiddleware(["admin"]),
+  generateScheduleCourtWeek
 );
 scheduleCourtWeekRouter.put(
   "/:id",
