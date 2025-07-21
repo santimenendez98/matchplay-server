@@ -5,7 +5,12 @@ import {
   deleteScheduleDay,
   updateScheduleDay,
 } from "../controllers/ScheduleDay";
-
+import {
+  getScheduleDayPrice,
+  createScheduleDayPrice,
+  updateScheduleDayPrice,
+  deleteScheduleDayPrice,
+} from "../controllers/ScheduleDayPrice";
 import { authMiddleware, rolMiddleware } from "../middleware";
 
 export const scheduleDayRouter = Router();
@@ -28,6 +33,25 @@ scheduleDayRouter.delete(
   authMiddleware,
   rolMiddleware(["admin"]),
   deleteScheduleDay
+);
+scheduleDayRouter.get("/price", authMiddleware, getScheduleDayPrice);
+scheduleDayRouter.post(
+  "/price",
+  authMiddleware,
+  rolMiddleware(["admin"]),
+  createScheduleDayPrice
+);
+scheduleDayRouter.put(
+  "/price/:id",
+  authMiddleware,
+  rolMiddleware(["admin"]),
+  updateScheduleDayPrice
+);
+scheduleDayRouter.delete(
+  "/price/:id",
+  authMiddleware,
+  rolMiddleware(["admin"]),
+  deleteScheduleDayPrice
 );
 
 export default scheduleDayRouter;

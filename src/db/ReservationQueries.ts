@@ -34,6 +34,11 @@ export const createReservationQuery = (reservation: ReservationModel) =>
 
 export const updateReservationQuery = (id: string) =>
   pool.query<ReservationModel>(
-    `UPDATE Reservation SET is_avilable = FALSE WHERE id = $1`,
+    `UPDATE ScheduleCourt SET is_available = FALSE WHERE id = $1`,
     [id]
   );
+
+export const getPriceForReservationQuery = (schedule_id: string) =>
+  pool.query(`SELECT * FROM ScheduleCourtPrice WHERE schedule_id = $1`, [
+    schedule_id,
+  ]);

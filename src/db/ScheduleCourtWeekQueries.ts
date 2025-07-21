@@ -42,14 +42,13 @@ export const createScheduleCourtWeekQuery = (
   schedule: WeekScheduleCourtModel
 ) =>
   pool.query<WeekScheduleCourtModel>(
-    `INSERT INTO WeekScheduleCourt (court_id, day_of_week, start_time, end_time, price) 
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    `INSERT INTO WeekScheduleCourt (court_id, day_of_week, start_time, end_time) 
+     VALUES ($1, $2, $3, $4) RETURNING *`,
     [
       schedule.court_id,
       schedule.day_of_week,
       schedule.start_time,
       schedule.end_time,
-      schedule.price,
     ]
   );
 

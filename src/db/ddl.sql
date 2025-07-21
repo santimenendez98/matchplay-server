@@ -9,7 +9,9 @@ DROP TABLE IF EXISTS MatchPlayer CASCADE;
 DROP TABLE IF EXISTS Match CASCADE;
 DROP TABLE IF EXISTS Reservation CASCADE;
 DROP TABLE IF EXISTS ScheduleCourt CASCADE;
+DROP TABLE IF EXISTS ScheduleCourtPrice CASCADE;
 DROP TABLE IF EXISTS WeekScheduleCourt CASCADE;
+DROP TABLE IF EXISTS WeekScheduleCourtPrice CASCADE;
 DROP TABLE IF EXISTS Court CASCADE;
 DROP TABLE IF EXISTS Sport CASCADE;
 DROP TABLE IF EXISTS Complex CASCADE;
@@ -56,8 +58,15 @@ CREATE TABLE WeekScheduleCourt (
   day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
-  price DECIMAL(10, 2) NOT NULL,
   UNIQUE(court_id, day_of_week, start_time, end_time)
+);
+
+CREATE TABLE WeekScheduleCourtPrice (
+  id SERIAL PRIMARY KEY,
+  week_schedule_id INTEGER NOT NULL REFERENCES WeekScheduleCourt(id),
+  hourPrice DECIMAL(10, 2) NOT NULL,
+  halfPrice DECIMAL(10, 2) NOT NULL,
+  UNIQUE(week_schedule_id)
 );
 
 CREATE TABLE ScheduleCourt (
@@ -66,9 +75,16 @@ CREATE TABLE ScheduleCourt (
   schedule_date DATE NOT NULL,
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
-  price DECIMAL(10, 2) NOT NULL,
   is_available BOOLEAN NOT NULL DEFAULT TRUE,
   UNIQUE (court_id, schedule_date, start_time, end_time)
+);
+
+CREATE TABLE ScheduleCourtPrice (
+  id SERIAL PRIMARY KEY,
+  schedule_id INTEGER NOT NULL REFERENCES ScheduleCourt(id),
+  hourPrice DECIMAL(10, 2) NOT NULL,
+  halfPrice DECIMAL(10, 2) NOT NULL,
+  UNIQUE(schedule_id)
 );
 
 CREATE TABLE Reservation (

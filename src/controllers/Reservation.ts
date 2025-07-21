@@ -6,14 +6,15 @@ import {
   ReservationGetModelSuccess,
   ReservationModelSuccess,
 } from "../types/Reservation";
-import { errorResponseModel, paramsModels } from "../types";
+import { errorResponseModel } from "../types";
 import {
   getAllReservationsQuery,
-  getReservationWithIdQuery,
   verifyHourAvailabilityQuery,
   createReservationQuery,
   updateReservationQuery,
+  getPriceForReservationQuery,
 } from "../db/ReservationQueries";
+import { getScheduleById } from "../db/ScheduleCourtQueries";
 
 export const getReservations = async (
   req: Request,
@@ -39,7 +40,7 @@ export const createReservation = async (
 
   try {
     // Get the schedule details
-    const scheduleRes = await getReservationWithIdQuery(schedule_id);
+    const scheduleRes = await getScheduleById(schedule_id);
 
     if (scheduleRes.rows.length === 0) {
       return res
@@ -65,7 +66,13 @@ export const createReservation = async (
     }
 
     // Calculate the total price
-    const totalPrice = scheduleRes.rows[0].price * time_reserved;
+    const getPrice = await getPriceForReservationQuery(schedule_id);
+    const totalPrice: number =
+      time_reserved === 1
+        ? getPrice.rows[0].hourprice
+        : getPrice.rows[0].halfprice;
+
+    console.log("Total Price:", totalPrice);
 
     // Insert the reservation
     const result = await createReservationQuery({

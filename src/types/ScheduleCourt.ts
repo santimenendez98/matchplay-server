@@ -4,7 +4,6 @@ export interface scheduleDayModel {
   schedule_date: string;
   start_time: string;
   end_time: string;
-  price: number;
   is_available: boolean;
 }
 
@@ -20,7 +19,7 @@ export type scheduleDeleteModelSuccess = {
 
 export type updateScheduleDayModel = Pick<
   scheduleDayModel,
-  "court_id" | "start_time" | "end_time" | "price" | "is_available"
+  "court_id" | "start_time" | "end_time" | "is_available"
 >;
 
 export type createScheduleDayModel = Omit<
