@@ -33,14 +33,13 @@ export const createScheduleDay = async (
   req: Request<{}, {}, createScheduleDayModel>,
   res: Response<schedulePostDayModelSuccess | errorResponseModel>
 ) => {
-  const { court_id, schedule_date, start_time, end_time, price } = req.body;
+  const { court_id, schedule_date, start_time, end_time } = req.body;
   try {
     const newScheduleDay = await insertSchedule({
       court_id,
       schedule_date,
       start_time,
       end_time,
-      price,
     });
     res
       .status(201)
@@ -60,7 +59,7 @@ export const updateScheduleDay = async (
   res: Response<scheduleDayModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
-  const { court_id, start_time, end_time, price } = req.body;
+  const { court_id, start_time, end_time } = req.body;
   try {
     const scheduleDay = await getScheduleById(id);
 
@@ -87,7 +86,6 @@ export const updateScheduleDay = async (
       court_id,
       start_time,
       end_time,
-      price,
     };
     const keys = Object.keys(fields).filter(
       (key) => fields[key as keyof typeof fields] !== undefined
