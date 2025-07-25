@@ -6,9 +6,9 @@ export const getAllDayPriceQuery = () =>
 
 export const createDayPriceQuery = (dayPrice: DayPriceModel) =>
   pool.query<DayPriceModel>(
-    `INSERT INTO ScheduleCourtPrice (schedule_id, hourPrice, halfPrice) 
+    `INSERT INTO ScheduleCourtPrice (schedule_id, hourprice, halfprice) 
      VALUES ($1, $2, $3) RETURNING *`,
-    [dayPrice.schedule_id, dayPrice.hourPrice, dayPrice.halfPrice]
+    [dayPrice.schedule_id, dayPrice.hourprice, dayPrice.halfprice]
   );
 
 export const updateDayPriceQuery = (query: string, values: any[]) =>
@@ -16,3 +16,8 @@ export const updateDayPriceQuery = (query: string, values: any[]) =>
 
 export const deleteDayPriceQuery = (id: string) =>
   pool.query(`DELETE FROM ScheduleCourtPrice WHERE id = $1`, [id]);
+
+export const getPriceForReservationQuery = (schedule_id: string) =>
+  pool.query(`SELECT * FROM ScheduleCourtPrice WHERE schedule_id = $1`, [
+    schedule_id,
+  ]);

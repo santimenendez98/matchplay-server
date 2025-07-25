@@ -42,8 +42,8 @@ export const generateScheduleForDay = async (date: Date) => {
       // Create day price for the new schedule
       await createDayPriceQuery({
         schedule_id: newSchedule.rows[0].id,
-        hourPrice: dayPrice.rows[0].hourprice,
-        halfPrice: dayPrice.rows[0].halfprice,
+        hourprice: dayPrice.rows[0].hourprice,
+        halfprice: dayPrice.rows[0].halfprice,
       });
     }
   }

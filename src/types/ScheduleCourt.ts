@@ -1,6 +1,6 @@
 export interface scheduleDayModel {
   id?: number | string;
-  court_id: number;
+  court_id: string;
   schedule_date: string;
   start_time: string;
   end_time: string;

@@ -1,20 +1,30 @@
 import e, { Response, Request } from "express";
-import pool from "../db/connection";
 import { addMinutesToTime } from "../services/addMinutes";
 import {
   ReservationModel,
   ReservationGetModelSuccess,
   ReservationModelSuccess,
 } from "../types/Reservation";
-import { errorResponseModel } from "../types";
+import { errorResponseModel, paramsModels } from "../types";
 import {
   getAllReservationsQuery,
-  verifyHourAvailabilityQuery,
   createReservationQuery,
-  updateReservationQuery,
-  getPriceForReservationQuery,
+  getReservationWithIdQuery,
+  deleteReservationQuery,
 } from "../db/ReservationQueries";
-import { getScheduleById } from "../db/ScheduleCourtQueries";
+import {
+  getExistingOverlappingSchedule,
+  getScheduleById,
+  updateScheduleById,
+  verifyHourAvailabilityQuery,
+  updateReservationQuery,
+} from "../db/ScheduleCourtQueries";
+import { MatchModel, MatchGetModelSuccess } from "../types/Match";
+import {
+  createMatchQuery,
+  deleteMatchByReservationIdQuery,
+} from "../db/MatchQueries";
+import { getPriceForReservationQuery } from "../db/ScheduleDayPrIceQueries";
 
 export const getReservations = async (
   req: Request,
@@ -33,9 +43,11 @@ export const getReservations = async (
 
 export const createReservation = async (
   req: Request<{}, {}, ReservationModel>,
-  res: Response<ReservationGetModelSuccess | errorResponseModel>
+  res: Response<
+    MatchGetModelSuccess | ReservationGetModelSuccess | errorResponseModel
+  >
 ) => {
-  const { schedule_id, account_id, time_reserved } = req.body;
+  const { schedule_id, account_id, time_reserved, is_match } = req.body;
   const today = new Date();
 
   try {
@@ -72,8 +84,6 @@ export const createReservation = async (
         ? getPrice.rows[0].hourprice
         : getPrice.rows[0].halfprice;
 
-    console.log("Total Price:", totalPrice);
-
     // Insert the reservation
     const result = await createReservationQuery({
       schedule_id,
@@ -83,6 +93,7 @@ export const createReservation = async (
       end_time,
       time_reserved,
       reservation_date: today.toISOString().split("T")[0],
+      is_match,
       status: ["pending"],
     });
 
@@ -90,6 +101,21 @@ export const createReservation = async (
     await Promise.all(
       scheduleReserve.rows.map((row) => updateReservationQuery(row.id))
     );
+
+    if (is_match && result.rows[0].id) {
+      const match: MatchModel = {
+        court_id: scheduleRes.rows[0].court_id,
+        creator_id: account_id,
+        reservation_id: result.rows[0].id,
+      };
+
+      const matchReserve = await createMatchQuery(match);
+
+      return res.status(201).json({
+        message: "Match created successfully",
+        data: matchReserve.rows[0],
+      });
+    }
 
     return res.status(201).json({
       message: "Reservation created successfully",
@@ -104,7 +130,59 @@ export const createReservation = async (
   }
 };
 
+export const deleteReservation = async (
+  req: Request<paramsModels>,
+  res: Response<ReservationGetModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { id } = req.params;
+
+    // Get the reservation details
+    const reservation = await getReservationWithIdQuery(id);
+
+    if (reservation.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Reservation not found" });
+    }
+
+    const court = await getScheduleById(reservation.rows[0].schedule_id);
+
+    // Update the schedule availability
+    const slots = await getExistingOverlappingSchedule(
+      court.rows[0].court_id,
+      reservation.rows[0].start_time,
+      reservation.rows[0].end_time
+    );
+
+    console.log(slots);
+
+    await Promise.all(
+      slots.rows.map((slot: any) =>
+        updateScheduleById(
+          "UPDATE ScheduleCourt SET is_available = true WHERE id = $1",
+          [slot.id]
+        )
+      )
+    );
+
+    // Check if the reservation exists
+    await deleteMatchByReservationIdQuery(id);
+
+    // Delete the reservation
+    const result = await deleteReservationQuery(id);
+
+    res.status(200).json({
+      message: "Reservation deleted successfully",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
 export default {
   getReservations,
   createReservation,
+  deleteReservation,
 };

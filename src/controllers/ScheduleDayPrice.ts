@@ -33,12 +33,12 @@ export const createScheduleDayPrice = async (
   req: Request<{}, {}, DayPriceModel>,
   res: Response<errorResponseModel | DayPriceGetModelSuccess>
 ) => {
-  const { schedule_id, hourPrice, halfPrice } = req.body;
+  const { schedule_id, hourprice, halfprice } = req.body;
 
   const newPrice = await createDayPriceQuery({
     schedule_id,
-    hourPrice,
-    halfPrice,
+    hourprice,
+    halfprice,
   });
 
   if (newPrice.rowCount === 0) {
