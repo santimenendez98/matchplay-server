@@ -45,8 +45,8 @@ export const createScheduleCourtWeek = async (
       day_of_week,
       start_time,
       end_time,
-      hourPrice,
-      halfPrice,
+      hourprice,
+      halfprice,
     } = req.body;
     const today = new Date();
 
@@ -76,8 +76,8 @@ export const createScheduleCourtWeek = async (
       day_of_week,
       start_time,
       end_time,
-      hourPrice,
-      halfPrice,
+      hourprice,
+      halfprice,
     });
 
     for (let i = 0; i < 7; i++) {
@@ -106,7 +106,7 @@ export const updateScheduleCourtWeek = async (
   res: Response<WeekScheduleCourtModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
-  const { court_id, day_of_week, start_time, end_time, hourPrice, halfPrice } =
+  const { court_id, day_of_week, start_time, end_time, hourprice, halfprice } =
     req.body;
   try {
     const scheduleCourtWeek = await getWeekScheduleCourtByIdQuery(id);
@@ -123,8 +123,8 @@ export const updateScheduleCourtWeek = async (
       day_of_week,
       start_time,
       end_time,
-      hourPrice,
-      halfPrice,
+      hourprice,
+      halfprice,
     };
     const keys = Object.keys(fields).filter(
       (key) => fields[key as keyof typeof fields] !== undefined
@@ -182,7 +182,7 @@ export const generateScheduleCourtWeek = async (
   req: Request<{}, {}, WeekScheduleCourtModel>,
   res: Response<WeekScheduleCourtGetModelSuccess | errorResponseModel>
 ) => {
-  const { court_id, day_of_week, start_time, end_time, hourPrice, halfPrice } =
+  const { court_id, day_of_week, start_time, end_time, hourprice, halfprice } =
     req.body;
   const today = new Date();
 
@@ -216,8 +216,8 @@ export const generateScheduleCourtWeek = async (
         day_of_week,
         start_time: currentTime,
         end_time: nextTime,
-        hourPrice,
-        halfPrice,
+        hourprice,
+        halfprice,
       });
 
       const resId = scheduleRes.rows[0]?.id;
@@ -225,8 +225,8 @@ export const generateScheduleCourtWeek = async (
       if (resId !== undefined) {
         await createWeekPriceQuery({
           week_schedule_id: resId.toString(),
-          hourPrice,
-          halfPrice,
+          hourprice,
+          halfprice,
         });
       }
 
@@ -247,8 +247,8 @@ export const generateScheduleCourtWeek = async (
         day_of_week,
         start_time,
         end_time,
-        hourPrice,
-        halfPrice,
+        hourprice,
+        halfprice,
       },
     });
   } catch (error) {

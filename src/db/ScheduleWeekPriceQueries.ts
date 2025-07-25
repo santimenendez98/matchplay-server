@@ -6,9 +6,9 @@ export const getAllWeekPriceQuery = () =>
 
 export const createWeekPriceQuery = (weekPrice: WeekPriceModel) =>
   pool.query<WeekPriceModel>(
-    `INSERT INTO WeekScheduleCourtPrice (week_schedule_id, hourPrice, halfPrice) 
+    `INSERT INTO WeekScheduleCourtPrice (week_schedule_id, hourprice, halfprice) 
      VALUES ($1, $2, $3) RETURNING *`,
-    [weekPrice.week_schedule_id, weekPrice.hourPrice, weekPrice.halfPrice]
+    [weekPrice.week_schedule_id, weekPrice.hourprice, weekPrice.halfprice]
   );
 
 export const updateWeekPriceQuery = (query: string, values: any[]) =>

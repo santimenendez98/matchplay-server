@@ -7,6 +7,7 @@ export interface ReservationModel {
   end_time: string;
   time_reserved: number;
   reservation_date: string;
+  is_match?: boolean;
   status: ["pending" | "confirmed" | "cancelled"];
 }
 
@@ -22,5 +23,11 @@ export interface ReservationGetModelSuccess {
 
 export type updateReservationModel = Pick<
   ReservationModel,
-  "schedule_id" | "account_id" | "price" | "start_time" | "end_time" | "status"
+  | "schedule_id"
+  | "account_id"
+  | "price"
+  | "start_time"
+  | "end_time"
+  | "status"
+  | "is_match"
 >;

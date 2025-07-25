@@ -96,6 +96,7 @@ CREATE TABLE Reservation (
   end_time TIME NOT NULL,
   time_reserved DECIMAL(10,1) NOT NULL CHECK (time_reserved IN (1, 1.5)),
   reservation_date DATE NOT NULL,
+  is_match BOOLEAN NOT NULL DEFAULT FALSE,
   status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancelled')) DEFAULT 'pending'
 );
 

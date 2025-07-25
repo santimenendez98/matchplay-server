@@ -1,8 +1,8 @@
 export interface WeekPriceModel {
   id?: string;
   week_schedule_id: string;
-  hourPrice: number;
-  halfPrice: number;
+  hourprice: number;
+  halfprice: number;
 }
 
 export interface WeekPriceModelSuccess {
@@ -17,7 +17,7 @@ export interface WeekPriceGetModelSuccess {
 
 export type updateWeekPriceModel = Pick<
   WeekPriceModel,
-  "week_schedule_id" | "hourPrice" | "halfPrice"
+  "week_schedule_id" | "hourprice" | "halfprice"
 >;
 
 export type DayPriceModel = Omit<WeekPriceModel, "week_schedule_id"> & {
@@ -34,5 +34,5 @@ export type DayPriceGetModelSuccess = Omit<WeekPriceGetModelSuccess, "data"> & {
 
 export type updateDayPriceModel = Pick<
   DayPriceModel,
-  "schedule_id" | "hourPrice" | "halfPrice"
+  "schedule_id" | "hourprice" | "halfprice"
 >;

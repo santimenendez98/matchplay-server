@@ -7,6 +7,7 @@ import sportRouter from "./sportRouter";
 import scheduleDayRouter from "./scheduleDay";
 import scheduleCourtWeekRouter from "./scheduleCourtWeek";
 import reservationRouter from "./reservationRouter";
+import matchRouter from "./matchRouter";
 
 export const router = Router();
 
@@ -18,5 +19,6 @@ router.use("/sport", sportRouter);
 router.use("/scheduleday", scheduleDayRouter);
 router.use("/schedulecourtweek", scheduleCourtWeekRouter);
 router.use("/reservation", reservationRouter);
+router.use("/match", matchRouter);
 
 export default router;

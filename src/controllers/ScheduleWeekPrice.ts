@@ -33,12 +33,12 @@ export const createScheduleWeekPrice = async (
   req: Request<{}, {}, WeekPriceModel>,
   res: Response<errorResponseModel | WeekPriceGetModelSuccess>
 ) => {
-  const { week_schedule_id, hourPrice, halfPrice } = req.body;
+  const { week_schedule_id, hourprice, halfprice } = req.body;
 
   const newPrice = await createWeekPriceQuery({
     week_schedule_id,
-    hourPrice,
-    halfPrice,
+    hourprice,
+    halfprice,
   });
 
   if (newPrice.rowCount === 0) {

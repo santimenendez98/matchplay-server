@@ -4,8 +4,8 @@ export interface WeekScheduleCourtModel {
   day_of_week: number;
   start_time: string;
   end_time: string;
-  hourPrice: number;
-  halfPrice: number;
+  hourprice: number;
+  halfprice: number;
 }
 
 export interface WeekScheduleCourtModelSuccess {
@@ -24,6 +24,6 @@ export type updateWeekScheduleCourtModel = Pick<
   | "day_of_week"
   | "start_time"
   | "end_time"
-  | "hourPrice"
-  | "halfPrice"
+  | "hourprice"
+  | "halfprice"
 >;
