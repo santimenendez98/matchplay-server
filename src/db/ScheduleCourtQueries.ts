@@ -65,3 +65,24 @@ export const verifyHourAvailabilityQuery = (
     `SELECT * FROM ScheduleCourt WHERE is_available = TRUE AND start_time >= $1 AND end_time <= $2`,
     [start_time, end_time]
   );
+
+export const updateScheduleAvailable = async (
+  court_id: string,
+  start_time: string,
+  end_time: string
+) => {
+  const slots = await getExistingOverlappingSchedule(
+    court_id,
+    start_time,
+    end_time
+  );
+
+  await Promise.all(
+    slots.rows.map((slot: any) =>
+      updateScheduleById(
+        "UPDATE ScheduleCourt SET is_available = true WHERE id = $1",
+        [slot.id]
+      )
+    )
+  );
+};

@@ -116,7 +116,8 @@ CREATE TABLE Match (
   creator_id INTEGER NOT NULL REFERENCES Account(id),
   court_id INTEGER NOT NULL REFERENCES Court(id),
   reservation_id INTEGER NOT NULL REFERENCES Reservation(id),
-  status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'ongoing', 'completed', 'cancelled'))
+  current_players INTEGER NOT NULL DEFAULT 0,
+  status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'completed', 'cancelled'))
 );
 
 CREATE TABLE MatchPlayer (
