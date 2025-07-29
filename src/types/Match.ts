@@ -3,6 +3,14 @@ export interface MatchModel {
   creator_id: string;
   court_id: string;
   reservation_id: string;
+  current_players?: number;
+  status?: "pending" | "completed" | "cancelled";
+}
+
+export interface JoinMatchModel {
+  match_id: string;
+  player_id: string;
+  joined_at: Date;
 }
 
 export interface MatchModelSuccess {
@@ -13,4 +21,9 @@ export interface MatchModelSuccess {
 export interface MatchGetModelSuccess {
   message: string;
   data: MatchModel;
+}
+
+export interface JoinMatchModelSuccess {
+  message: string;
+  data: JoinMatchModel;
 }

@@ -18,11 +18,15 @@ import {
   updateScheduleById,
   verifyHourAvailabilityQuery,
   updateReservationQuery,
+  updateScheduleAvailable,
 } from "../db/ScheduleCourtQueries";
 import { MatchModel, MatchGetModelSuccess } from "../types/Match";
 import {
   createMatchQuery,
   deleteMatchByReservationIdQuery,
+  deleteMatchPlayerQuery,
+  getMatchByReservationQuery,
+  joinMatchQuery,
 } from "../db/MatchQueries";
 import { getPriceForReservationQuery } from "../db/ScheduleDayPrIceQueries";
 
@@ -111,6 +115,10 @@ export const createReservation = async (
 
       const matchReserve = await createMatchQuery(match);
 
+      if (matchReserve.rows[0].id) {
+        await joinMatchQuery(matchReserve.rows[0].id, account_id, today);
+      }
+
       return res.status(201).json({
         message: "Match created successfully",
         data: matchReserve.rows[0],
@@ -147,24 +155,18 @@ export const deleteReservation = async (
     }
 
     const court = await getScheduleById(reservation.rows[0].schedule_id);
+    const match = await getMatchByReservationQuery(id);
 
     // Update the schedule availability
-    const slots = await getExistingOverlappingSchedule(
+    await updateScheduleAvailable(
       court.rows[0].court_id,
       reservation.rows[0].start_time,
       reservation.rows[0].end_time
     );
 
-    console.log(slots);
+    // If the reservation is part of a match, delete the match
 
-    await Promise.all(
-      slots.rows.map((slot: any) =>
-        updateScheduleById(
-          "UPDATE ScheduleCourt SET is_available = true WHERE id = $1",
-          [slot.id]
-        )
-      )
-    );
+    if (match.rows[0].id) await deleteMatchPlayerQuery(match.rows[0].id);
 
     // Check if the reservation exists
     await deleteMatchByReservationIdQuery(id);
