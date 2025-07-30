@@ -1,5 +1,9 @@
 import e, { Response, Request } from "express";
-import { addMinutesToTime } from "../services/addMinutes";
+import {
+  addMinutesToTime,
+  getCurrentTime,
+  getNext1Hour,
+} from "../services/addMinutes";
 import {
   ReservationModel,
   ReservationGetModelSuccess,
@@ -11,11 +15,13 @@ import {
   createReservationQuery,
   getReservationWithIdQuery,
   deleteReservationQuery,
+  createPreReserveQuery,
+  deletePreReserveQuery,
+  updatePreReserveStatusQuery,
+  updateReservationStatusQuery,
 } from "../db/ReservationQueries";
 import {
-  getExistingOverlappingSchedule,
   getScheduleById,
-  updateScheduleById,
   verifyHourAvailabilityQuery,
   updateReservationQuery,
   updateScheduleAvailable,
@@ -27,6 +33,7 @@ import {
   deleteMatchPlayerQuery,
   getMatchByReservationQuery,
   joinMatchQuery,
+  updateStatusMatchQuery,
 } from "../db/MatchQueries";
 import { getPriceForReservationQuery } from "../db/ScheduleDayPrIceQueries";
 
@@ -52,7 +59,7 @@ export const createReservation = async (
   >
 ) => {
   const { schedule_id, account_id, time_reserved, is_match } = req.body;
-  const today = new Date();
+  const today = getCurrentTime();
 
   try {
     // Get the schedule details
@@ -96,7 +103,7 @@ export const createReservation = async (
       start_time,
       end_time,
       time_reserved,
-      reservation_date: today.toISOString().split("T")[0],
+      reservation_date: today,
       is_match,
       status: ["pending"],
     });
@@ -114,7 +121,17 @@ export const createReservation = async (
       };
 
       const matchReserve = await createMatchQuery(match);
+      const time = getNext1Hour();
 
+      // Create pre-reservation if match is created
+      await createPreReserveQuery({
+        court_id: scheduleRes.rows[0].court_id,
+        match_id: matchReserve.rows[0].id,
+        expiration_date: time,
+        registration_status: "pending",
+      });
+
+      // Join the match if it was created successfully
       if (matchReserve.rows[0].id) {
         await joinMatchQuery(matchReserve.rows[0].id, account_id, today);
       }
@@ -138,9 +155,9 @@ export const createReservation = async (
   }
 };
 
-export const deleteReservation = async (
+export const cancellReservation = async (
   req: Request<paramsModels>,
-  res: Response<ReservationGetModelSuccess | errorResponseModel>
+  res: Response<{ message: string } | errorResponseModel>
 ) => {
   try {
     const { id } = req.params;
@@ -148,10 +165,25 @@ export const deleteReservation = async (
     // Get the reservation details
     const reservation = await getReservationWithIdQuery(id);
 
+    //Additional check to ensure reservation exists and is not already cancelled or completed
     if (reservation.rows.length === 0) {
       return res
         .status(404)
         .json({ message: "An error ocurred", error: "Reservation not found" });
+    }
+
+    if (reservation.rows[0].status.includes("cancelled")) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Reservation already cancelled",
+      });
+    }
+
+    if (reservation.rows[0].status.includes("confirmed")) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Reservation already completed",
+      });
     }
 
     const court = await getScheduleById(reservation.rows[0].schedule_id);
@@ -164,19 +196,17 @@ export const deleteReservation = async (
       reservation.rows[0].end_time
     );
 
-    // If the reservation is part of a match, delete the match
+    // If the reservation is part of a match, delete the match and pre-reservation
 
-    if (match.rows[0].id) await deleteMatchPlayerQuery(match.rows[0].id);
-
-    // Check if the reservation exists
-    await deleteMatchByReservationIdQuery(id);
-
-    // Delete the reservation
-    const result = await deleteReservationQuery(id);
+    if (match.rows[0].id && reservation.rows[0].id) {
+      await deleteMatchPlayerQuery(match.rows[0].id);
+      await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
+      await updateStatusMatchQuery(match.rows[0].id, "cancelled");
+      await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
+    }
 
     res.status(200).json({
-      message: "Reservation deleted successfully",
-      data: result.rows[0],
+      message: "Reservation cancelled successfully",
     });
   } catch (error) {
     const err = error as Error;
@@ -186,5 +216,5 @@ export const deleteReservation = async (
 export default {
   getReservations,
   createReservation,
-  deleteReservation,
+  cancellReservation,
 };

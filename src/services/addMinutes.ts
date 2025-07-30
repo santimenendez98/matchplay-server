@@ -1,3 +1,6 @@
+import { addMinutes } from "date-fns";
+import { toZonedTime, format } from "date-fns-tz";
+
 export const addMinutesToTime = (
   time: string,
   minutesToAdd: number
@@ -12,17 +15,28 @@ export const addMinutesToTime = (
   return `${hh}:${mm}`;
 };
 
-export const parseTimeToDate = (time: string): Date => {
-  return new Date(`1970-01-01T${time}:00Z`);
-};
-
 export const timeToMinutes = (time: string): number => {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
 };
 
+export const getCurrentTime = () => {
+  const timeZone = "America/Montevideo";
+  const now = new Date();
+  const zoneDate = toZonedTime(now, timeZone);
+  return format(zoneDate, "yyyy-MM-dd HH:mm:ss", { timeZone });
+};
+
+export const getNext1Hour = () => {
+  const time = getCurrentTime();
+  const newDate = addMinutes(time, 60);
+
+  return format(newDate, "yyyy-MM-dd HH:mm:ss");
+};
+
 export default {
   addMinutesToTime,
-  parseTimeToDate,
   timeToMinutes,
+  getNext1Hour,
+  getCurrentTime,
 };

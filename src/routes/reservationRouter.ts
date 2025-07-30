@@ -2,13 +2,19 @@ import { Router } from "express";
 import {
   getReservations,
   createReservation,
-  deleteReservation,
+  cancellReservation,
 } from "../controllers/Reservation";
+import { authMiddleware, rolMiddleware } from "../middleware";
 
 export const reservationRouter = Router();
 
-reservationRouter.get("/", getReservations);
-reservationRouter.post("/", createReservation);
-reservationRouter.delete("/:id", deleteReservation);
+reservationRouter.get("/", authMiddleware, getReservations);
+reservationRouter.post("/", authMiddleware, createReservation);
+reservationRouter.patch(
+  "/:id",
+  authMiddleware,
+  rolMiddleware(["admin"]),
+  cancellReservation
+);
 
 export default reservationRouter;

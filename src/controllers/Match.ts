@@ -23,8 +23,11 @@ import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
   deleteReservationQuery,
   getReservationWithIdQuery,
+  updatePreReserveStatusQuery,
+  updateReservationStatusQuery,
 } from "../db/ReservationQueries";
 import { updateScheduleAvailable } from "../db/ScheduleCourtQueries";
+import { getCurrentTime } from "../services/addMinutes";
 
 export const getMatches = async (
   req: Request,
@@ -65,12 +68,12 @@ export const deleteMatch = async (
 };
 
 export const joinMatch = async (
-  req: Request<JoinMatchModel>,
+  req: Request<{}, {}, JoinMatchModel>,
   res: Response<JoinMatchModelSuccess | errorResponseModel>
 ) => {
   try {
     const { match_id, player_id } = req.body;
-    const joined_at = new Date();
+    const joined_at = getCurrentTime();
 
     const match = await getMatchByIdQuery(match_id);
     const player = await getAccountByIdQuery(player_id);
@@ -118,6 +121,11 @@ export const joinMatch = async (
         updatePlayer.rows[0].current_players === cantPlayers.rows[0].max_players
       ) {
         await updateStatusMatchQuery(match_id, "completed");
+        await updatePreReserveStatusQuery(match_id, "confirmed");
+        await updateReservationStatusQuery(
+          match.rows[0].reservation_id,
+          "confirmed"
+        );
       }
 
       const joinData = await joinMatchQuery(match_id, player_id, joined_at);
@@ -134,7 +142,7 @@ export const joinMatch = async (
 };
 
 export const leaveMatch = async (
-  req: Request<JoinMatchModel>,
+  req: Request<{}, {}, JoinMatchModel>,
   res: Response<JoinMatchModelSuccess | errorResponseModel>
 ) => {
   try {

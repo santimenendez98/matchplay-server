@@ -71,7 +71,7 @@ export const getCantPlayersByMatchQuery = async (match_id: string) => {
 export const joinMatchQuery = async (
   match_id: string,
   player_id: string,
-  joined_at: Date
+  joined_at: string
 ) => {
   return pool.query<JoinMatchModel>(
     `INSERT INTO MatchPlayer (match_id, player_id, joined_at) 
