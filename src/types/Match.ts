@@ -10,7 +10,7 @@ export interface MatchModel {
 export interface JoinMatchModel {
   match_id: string;
   player_id: string;
-  joined_at: Date;
+  joined_at: string;
 }
 
 export interface MatchModelSuccess {

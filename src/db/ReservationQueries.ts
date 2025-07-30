@@ -1,5 +1,5 @@
 import pool from "../db/connection";
-import { ReservationModel } from "../types/Reservation";
+import { PreReserveModel, ReservationModel } from "../types/Reservation";
 
 export const getAllReservationsQuery = () =>
   pool.query<ReservationModel>(`SELECT * FROM Reservation`);
@@ -26,3 +26,53 @@ export const createReservationQuery = (reservation: ReservationModel) =>
 
 export const deleteReservationQuery = (id: string) =>
   pool.query(`DELETE FROM Reservation WHERE id = $1`, [id]);
+
+export const updateReservationStatusQuery = (id: string, status: string) =>
+  pool.query<ReservationModel>(
+    `UPDATE Reservation SET status = $1 WHERE id = $2 RETURNING *`,
+    [status, id]
+  );
+
+// Pre-reservation
+
+export const createPreReserveQuery = (preReserve: {
+  court_id: string;
+  match_id?: string;
+  expiration_date: string;
+  registration_status: string;
+}) =>
+  pool.query(
+    `INSERT INTO PreRegistration (court_id, match_id, expiration_date, registration_status) 
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [
+      preReserve.court_id,
+      preReserve.match_id,
+      preReserve.expiration_date,
+      preReserve.registration_status,
+    ]
+  );
+
+export const getPreReserveByMatchQuery = (match_id: string) =>
+  pool.query<PreReserveModel[]>(
+    `SELECT * FROM PreRegistration WHERE match_id = $1`,
+    [match_id]
+  );
+
+export const updatePreReserveStatusQuery = (match_id: string, status: string) =>
+  pool.query<PreReserveModel>(
+    `UPDATE PreRegistration SET registration_status = $1 WHERE match_id = $2 RETURNING *`,
+    [status, match_id]
+  );
+
+export const updateExpiredPreReservesQuery = (time: string) =>
+  pool.query<PreReserveModel>(
+    `UPDATE PreRegistration SET registration_status = 'cancelled' 
+     WHERE expiration_date < $1 AND registration_status = 'pending' RETURNING *`,
+    [time]
+  );
+
+export const deletePreReserveQuery = (match_id: string) => {
+  return pool.query(`DELETE FROM PreRegistration WHERE match_id = $1`, [
+    match_id,
+  ]);
+};

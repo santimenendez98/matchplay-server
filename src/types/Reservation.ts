@@ -11,6 +11,14 @@ export interface ReservationModel {
   status: ["pending" | "confirmed" | "cancelled"];
 }
 
+export interface PreReserveModel {
+  id?: string;
+  court_id: string;
+  match_id?: string;
+  expiration_date: string;
+  registration_status: ["pending" | "confirmed" | "cancelled"];
+}
+
 export interface ReservationModelSuccess {
   message: string;
   data: ReservationModel[];
