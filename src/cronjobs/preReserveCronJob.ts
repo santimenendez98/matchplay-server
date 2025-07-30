@@ -13,7 +13,7 @@ import { updateScheduleAvailable } from "../db/ScheduleCourtQueries";
 import { getCurrentTime } from "../services/addMinutes";
 
 export const handleExpiredPreReserves = () => {
-  cron.schedule("*/1 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     try {
       const currentTime = getCurrentTime();
 
