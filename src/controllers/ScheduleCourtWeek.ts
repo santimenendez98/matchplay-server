@@ -1,7 +1,11 @@
 import { Response, Request } from "express";
 import generateScheduleForDay from "../services/scheduleService";
 import { addDays } from "date-fns";
-import { addMinutesToTime, timeToMinutes } from "../services/addMinutes";
+import {
+  addMinutesToTime,
+  getCurrentTime,
+  timeToMinutes,
+} from "../services/addMinutes";
 import {
   WeekScheduleCourtModel,
   WeekScheduleCourtGetModelSuccess,
@@ -184,7 +188,7 @@ export const generateScheduleCourtWeek = async (
 ) => {
   const { court_id, day_of_week, start_time, end_time, hourprice, halfprice } =
     req.body;
-  const today = new Date();
+  const today = getCurrentTime();
 
   try {
     if (timeToMinutes(start_time) >= timeToMinutes(end_time)) {

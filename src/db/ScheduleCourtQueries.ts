@@ -4,7 +4,9 @@ import { scheduleDayModel } from "../types/ScheduleCourt";
 import { ReservationModel } from "../types/Reservation";
 
 export const getAllSchedules = () =>
-  pool.query<scheduleDayModel>(`SELECT * FROM ScheduleCourt`);
+  pool.query<scheduleDayModel>(
+    `SELECT * FROM ScheduleCourt ORDER BY schedule_date, start_time ASC`
+  );
 
 export const getScheduleById = (id: number | string) =>
   pool.query<scheduleDayModel>(`SELECT * FROM ScheduleCourt WHERE id = $1`, [
@@ -65,6 +67,13 @@ export const verifyHourAvailabilityQuery = (
     `SELECT * FROM ScheduleCourt WHERE is_available = TRUE AND start_time >= $1 AND end_time <= $2`,
     [start_time, end_time]
   );
+
+export const checkScheduleStausQuery = (current_date: string) => {
+  return pool.query(
+    `UPDATE ScheduleCourt SET is_available = FALSE WHERE is_available = TRUE AND (schedule_date || ' ' || start_time) < $1 OR (schedule_date || ' ' || end_time) < $1`,
+    [current_date]
+  );
+};
 
 export const updateScheduleAvailable = async (
   court_id: string,

@@ -34,6 +34,14 @@ export const getNext1Hour = () => {
   return format(newDate, "yyyy-MM-dd HH:mm:ss");
 };
 
+export function isWithin24Hours(reservationDate: string): boolean {
+  const resDate = new Date(reservationDate);
+  const current = new Date(getCurrentTime());
+  const diffMs = current.getTime() - resDate.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  return diffHours <= 24;
+}
+
 export default {
   addMinutesToTime,
   timeToMinutes,

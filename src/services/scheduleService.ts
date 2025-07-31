@@ -1,9 +1,11 @@
 import pool from "../db/connection";
-import { getDay } from "date-fns";
+import { format, getDay } from "date-fns";
 import { createDayPriceQuery } from "../db/ScheduleDayPrIceQueries";
+import { getCurrentTime } from "./addMinutes";
 
 export const generateScheduleForDay = async (date: Date) => {
   const dayOfWeek = getDay(date);
+  const current = getCurrentTime();
 
   const plantilla = await pool.query(
     `SELECT * FROM WeekScheduleCourt WHERE day_of_week = $1`,
@@ -11,6 +13,8 @@ export const generateScheduleForDay = async (date: Date) => {
   );
 
   for (const row of plantilla.rows) {
+    const scheduleDate = format(date, "yyyy-MM-dd" + " " + row.start_time);
+    console.log("Schedule Date:", scheduleDate, "Current:", current);
     const exists = await pool.query(
       `SELECT id FROM ScheduleCourt WHERE court_id = $1 AND schedule_date = $2 AND start_time = $3 AND end_time = $4`,
       [
@@ -25,12 +29,13 @@ export const generateScheduleForDay = async (date: Date) => {
       // Create a new schedule for the court on the specified date
       const newSchedule = await pool.query(
         `INSERT INTO ScheduleCourt (court_id, schedule_date, start_time, end_time, is_available)
-         VALUES ($1, $2, $3, $4, TRUE) RETURNING *`,
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
         [
           row.court_id,
           date.toISOString().split("T")[0],
           row.start_time,
           row.end_time,
+          current < scheduleDate ? true : false,
         ]
       );
 
