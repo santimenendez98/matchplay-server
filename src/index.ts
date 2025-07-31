@@ -2,7 +2,10 @@ import express from "express";
 import dotenv from "dotenv";
 import pool from "./db/connection";
 import router from "./routes";
-import { startScheduleCronJob } from "./cronjobs/scheduleGenerator";
+import {
+  checkScheduleCronJob,
+  startScheduleCronJob,
+} from "./cronjobs/scheduleGenerator";
 import handleExpiredPreReserves from "./cronjobs/preReserveCronJob";
 
 const app = express();
@@ -19,4 +22,5 @@ app.listen(Number(process.env.PORT), () => {
   console.log(`Server is running on ${process.env.API_URL}${process.env.PORT}`);
   startScheduleCronJob();
   handleExpiredPreReserves();
+  checkScheduleCronJob();
 });

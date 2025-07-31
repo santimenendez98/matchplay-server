@@ -3,6 +3,7 @@ import {
   addMinutesToTime,
   getCurrentTime,
   getNext1Hour,
+  isWithin24Hours,
 } from "../services/addMinutes";
 import {
   ReservationModel,
@@ -36,6 +37,11 @@ import {
   updateStatusMatchQuery,
 } from "../db/MatchQueries";
 import { getPriceForReservationQuery } from "../db/ScheduleDayPrIceQueries";
+import {
+  CancelReservationModel,
+  CancelReservationModelSuccess,
+} from "../types/CancelReservation";
+import { createCancelRequestQuery } from "../db/CancelRequestQueries";
 
 export const getReservations = async (
   req: Request,
@@ -155,7 +161,7 @@ export const createReservation = async (
   }
 };
 
-export const cancellReservation = async (
+export const cancelReservation = async (
   req: Request<paramsModels>,
   res: Response<{ message: string } | errorResponseModel>
 ) => {
@@ -213,8 +219,80 @@ export const cancellReservation = async (
     res.status(500).json({ message: "An error occurred", error: err.message });
   }
 };
+
+export const cancelReservationRequest = async (
+  req: Request<{}, {}, CancelReservationModel>,
+  res: Response<errorResponseModel | CancelReservationModelSuccess>
+) => {
+  try {
+    const today = getCurrentTime();
+    const { reservation_id, requested_by, reason } = req.body;
+
+    const reservation = await getReservationWithIdQuery(reservation_id);
+    const schedule = await getScheduleById(reservation.rows[0].schedule_id);
+    const scheduleReserve =
+      schedule.rows[0].schedule_date + " " + reservation.rows[0].start_time;
+
+    //Check if the reservation exists
+    if (reservation.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Reservation not found" });
+    }
+
+    //Check if the reservation is already cancelled
+    if (reservation.rows[0].status.includes("cancelled")) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Reservation already cancelled",
+      });
+    }
+
+    //Check if the reservation is already completed
+    if (reservation.rows[0].status.includes("confirmed")) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Reservation already completed",
+      });
+    }
+
+    //Check if the reservation is a match
+    if (reservation.rows[0].is_match) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Reservation is a match, cannot cancel request",
+      });
+    }
+
+    //Check reservation date
+    if (isWithin24Hours(scheduleReserve)) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Reservation is not within 24 hours, cannot cancel request",
+      });
+    }
+
+    // Create the cancellation request
+    const cancelRequest = await createCancelRequestQuery({
+      reservation_id,
+      requested_by,
+      reason,
+      requested_at: today,
+    });
+
+    res.status(201).json({
+      message: "Cancellation request created successfully",
+      data: cancelRequest.rows[0],
+    });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
 export default {
   getReservations,
   createReservation,
-  cancellReservation,
+  cancelReservation,
+  cancelReservationRequest,
 };

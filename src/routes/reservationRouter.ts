@@ -2,19 +2,31 @@ import { Router } from "express";
 import {
   getReservations,
   createReservation,
-  cancellReservation,
+  cancelReservation,
+  cancelReservationRequest,
 } from "../controllers/Reservation";
 import { authMiddleware, rolMiddleware } from "../middleware";
 
 export const reservationRouter = Router();
 
 reservationRouter.get("/", authMiddleware, getReservations);
-reservationRouter.post("/", authMiddleware, createReservation);
+reservationRouter.post(
+  "/",
+  authMiddleware,
+  rolMiddleware(["user"]),
+  createReservation
+);
+reservationRouter.post(
+  "/cancelrequest",
+  authMiddleware,
+  rolMiddleware(["user"]),
+  cancelReservationRequest
+);
 reservationRouter.patch(
-  "/:id",
+  "/cancel/:id",
   authMiddleware,
   rolMiddleware(["admin"]),
-  cancellReservation
+  cancelReservation
 );
 
 export default reservationRouter;
