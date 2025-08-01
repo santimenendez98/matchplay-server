@@ -1,4 +1,5 @@
 import pool from "../db/connection";
+import { CancelModel } from "../types/CancelReservation";
 import { PreReserveModel, ReservationModel } from "../types/Reservation";
 
 export const getAllReservationsQuery = () =>
@@ -31,6 +32,15 @@ export const updateReservationStatusQuery = (id: string, status: string) =>
   pool.query<ReservationModel>(
     `UPDATE Reservation SET status = $1 WHERE id = $2 RETURNING *`,
     [status, id]
+  );
+
+export const checkReservationExistsQuery = (
+  account_id: string,
+  current_time: string
+) =>
+  pool.query<ReservationModel>(
+    `SELECT * FROM Reservation WHERE account_id = $1 AND end_time > $2  AND status = 'pending'`,
+    [account_id, current_time]
   );
 
 // Pre-reservation
@@ -75,4 +85,20 @@ export const deletePreReserveQuery = (match_id: string) => {
   return pool.query(`DELETE FROM PreRegistration WHERE match_id = $1`, [
     match_id,
   ]);
+};
+
+// Cancel Reservation History
+
+export const cancelReservationQuery = (cancelation: CancelModel) => {
+  return pool.query(
+    `INSERT INTO HistoryCancelReservation (reservation_id, match_id, cancelled_by, cancellation_reason, cancellation_date)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      cancelation.reservation_id,
+      cancelation.match_id,
+      cancelation.canceled_by,
+      cancelation.cancelation_reason,
+      cancelation.cancelation_date,
+    ]
+  );
 };

@@ -16,17 +16,13 @@ import {
   getPlayersJoinedByMatchQuery,
   getMatchesQuery,
   quitMatchQuery,
-  getMatchPlayerById,
-  deleteMatchPlayerQuery,
 } from "../db/MatchQueries";
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
   deleteReservationQuery,
-  getReservationWithIdQuery,
   updatePreReserveStatusQuery,
   updateReservationStatusQuery,
 } from "../db/ReservationQueries";
-import { updateScheduleAvailable } from "../db/ScheduleCourtQueries";
 import { getCurrentTime } from "../services/addMinutes";
 
 export const getMatches = async (
