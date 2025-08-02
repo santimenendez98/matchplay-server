@@ -1,6 +1,6 @@
 export interface complexModel {
   id?: number;
-  admin_id: number;
+  admin_id: string;
   name: string;
   location: string;
   description: string;
