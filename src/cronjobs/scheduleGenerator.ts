@@ -16,7 +16,16 @@ export const startScheduleCronJob = () => {
   });
 };
 
-export const checkScheduleCronJob = () => {
+export const checkScheduleCronJob = async () => {
+  // Initial check to set the availability status of schedules
+  try {
+    const today = getCurrentTime();
+    await checkScheduleStausQuery(today);
+    console.log("Checked schedule status at:", today);
+  } catch (error) {
+    console.error("Error checking schedule status:", error);
+  }
+  // Schedule to check the status of schedules every 30 minutes
   cron.schedule("0,30 * * * *", async () => {
     try {
       const today = getCurrentTime();

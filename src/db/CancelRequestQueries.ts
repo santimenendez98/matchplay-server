@@ -24,3 +24,12 @@ export const getCancelRequestByReserveQuery = (id: string) =>
     `SELECT * FROM CancelRequest WHERE reservation_id = $1`,
     [id]
   );
+
+export const updateCancelRequestStatusQuery = (
+  id: string,
+  status: "approved" | "rejected"
+) =>
+  pool.query(`UPDATE CancelRequest SET cancel_status = $1 WHERE id = $2`, [
+    status,
+    id,
+  ]);

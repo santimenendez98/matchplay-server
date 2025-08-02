@@ -9,9 +9,25 @@ export interface CancelReservationModel {
   reviewed_at?: string;
 }
 
+export interface CancelModel {
+  id?: string;
+  reservation_id: string;
+  match_id: string;
+  canceled_by: string;
+  cancelation_reason?: string;
+  cancelation_date: string;
+}
+
+export type BodyCancelModel = Omit<CancelModel, "id" | "cancelation_date">;
+
+export type BodyCancelPreReserveModel = Omit<
+  CancelModel,
+  "id" | "cancelation_date" | "cancelation_reason " | "match_id"
+>;
+
 export type CancelReservationRequestModel = Pick<
   CancelReservationModel,
-  "reservation_id" | "requested_by" | "reason"
+  "requested_by" | "reason" | "reservation_id"
 > & {
   requested_at?: CancelReservationModel["requested_at"];
 };

@@ -1,6 +1,6 @@
 export interface WeekScheduleCourtModel {
   id?: string;
-  court_id: number;
+  court_id: string;
   day_of_week: number;
   start_time: string;
   end_time: string;
