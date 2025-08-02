@@ -95,7 +95,7 @@ export const deleteAccount = async (
 };
 
 export const updateAccount = async (
-  req: Request<paramsModels, UpdateAccountModel>,
+  req: Request<paramsModels, {}, UpdateAccountModel>,
   res: Response<AccountModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
