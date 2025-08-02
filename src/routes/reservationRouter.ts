@@ -8,6 +8,7 @@ import {
 } from "../controllers/Reservation";
 import { authMiddleware, rolMiddleware } from "../middleware";
 import { body } from "express-validator";
+import { handleValidationErrors } from "../middleware/validatorErrors";
 
 export const reservationRouter = Router();
 
@@ -37,6 +38,7 @@ reservationRouter.post(
     .withMessage("Is match is required")
     .isBoolean()
     .withMessage("Is match must be a boolean"),
+  handleValidationErrors,
   authMiddleware,
   rolMiddleware(["user"]),
   createReservation
@@ -60,6 +62,7 @@ reservationRouter.post(
     .withMessage("Reason is required")
     .isString()
     .withMessage("Reason must be a string"),
+  handleValidationErrors,
   authMiddleware,
   rolMiddleware(["user"]),
   cancelReservationRequest
@@ -83,6 +86,7 @@ reservationRouter.post(
     .withMessage("Canceled by is required")
     .isString()
     .withMessage("Canceled by must be a string"),
+  handleValidationErrors,
   authMiddleware,
   rolMiddleware(["admin"]),
   cancelReservation
@@ -101,6 +105,7 @@ reservationRouter.post(
     .withMessage("Canceled by is required")
     .isString()
     .withMessage("Canceled by must be a string"),
+  handleValidationErrors,
   authMiddleware,
   cancelPreReservation
 );
