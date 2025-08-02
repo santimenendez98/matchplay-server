@@ -1,7 +1,7 @@
 export interface CourtModel {
   id?: string;
-  complex_id: number;
-  sport_id: number;
+  complex_id: string;
+  sport_id: string;
   name: string;
   image_url?: string;
 }
