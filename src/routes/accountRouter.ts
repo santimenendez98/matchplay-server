@@ -70,8 +70,6 @@ accountRouter.post(
   body("phone").isString().withMessage("Phone must be a string"),
   body("account_type").isString().withMessage("Account type must be a string"),
   handleValidationErrors,
-  authMiddleware,
-  rolMiddleware(["user"]),
   createAccount
 );
 

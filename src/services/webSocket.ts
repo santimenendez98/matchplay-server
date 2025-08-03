@@ -37,3 +37,13 @@ export const emitNotificationCourt = (schedule_id: string) => {
   });
   console.log(`Notification sent to court room: ${roomName}`);
 };
+
+// Emit notification for reservation cancellation
+export const emitNotificationCancelRequest = (cancel_id: string) => {
+  io.emit("notificationCancelRequest", {
+    message: `A cancellation request has been made for reservation ${cancel_id}.`,
+  });
+  console.log(
+    `Cancellation request notification sent for reservation: ${cancel_id}`
+  );
+};

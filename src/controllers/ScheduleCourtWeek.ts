@@ -239,6 +239,7 @@ export const generateScheduleCourtWeek = async (
 
     for (let i = 0; i < 7; i++) {
       const date = addDays(today, i);
+      console.log(date.getDay());
       if (date.getDay() === day_of_week) {
         await generateScheduleForDay(date);
       }
