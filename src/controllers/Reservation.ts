@@ -49,6 +49,10 @@ import {
   updateCancelRequestStatusQuery,
 } from "../db/CancelRequestQueries";
 import { getCourtByIdQuery } from "../db/CourtQueries";
+import {
+  emitNotificationCancelRequest,
+  emitNotificationCourt,
+} from "../services/webSocket";
 
 export const getReservations = async (
   req: Request,
@@ -260,6 +264,9 @@ export const cancelReservation = async (
       await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
     }
 
+    // Notify users about the cancellation
+    emitNotificationCourt(reservation.rows[0].schedule_id);
+
     res.status(200).json({
       message: "Reservation cancelled successfully",
     });
@@ -343,6 +350,9 @@ export const cancelPreReservation = async (
         await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
         await updateStatusMatchQuery(match.rows[0].id, "cancelled");
         await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
+
+        // Notify users about the cancellation
+        emitNotificationCourt(reservation.rows[0].schedule_id);
       }
 
       res.status(201).json({
@@ -368,6 +378,9 @@ export const cancelReservationRequest = async (
     const schedule = await getScheduleById(reservation.rows[0].schedule_id);
     const scheduleReserve =
       schedule.rows[0].schedule_date + " " + reservation.rows[0].start_time;
+    const getCancelRequest = await getCancelRequestByReserveQuery(
+      reservation_id
+    );
 
     //Check if the reservation exists
     if (reservation.rows.length === 0) {
@@ -400,6 +413,14 @@ export const cancelReservationRequest = async (
       });
     }
 
+    // Check if a cancellation request already exists
+    if (getCancelRequest.rows.length > 0) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Cancellation request already exists for this reservation",
+      });
+    }
+
     //Check reservation date
     if (isWithin24Hours(scheduleReserve)) {
       return res.status(400).json({
@@ -415,6 +436,11 @@ export const cancelReservationRequest = async (
       reason,
       requested_at: today,
     });
+
+    // Notify admin about the cancellation request
+    if (cancelRequest.rows[0].id) {
+      emitNotificationCancelRequest(cancelRequest.rows[0].id);
+    }
 
     res.status(201).json({
       message: "Cancellation request created successfully",

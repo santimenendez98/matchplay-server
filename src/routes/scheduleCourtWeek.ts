@@ -134,6 +134,7 @@ scheduleCourtWeekRouter.post(
   body("day_of_week")
     .notEmpty()
     .withMessage("Day of week is required")
+    .toInt()
     .isInt({ min: 0, max: 6 })
     .withMessage("Day of week must be between 0 (Sunday) and 6 (Saturday)"),
   body("start_time")
