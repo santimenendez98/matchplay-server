@@ -76,11 +76,6 @@ reservationRouter.post(
     .withMessage("Reservation ID is required")
     .isString()
     .withMessage("Reservation ID must be a string"),
-  body("match_id")
-    .notEmpty()
-    .withMessage("Match ID is required")
-    .isString()
-    .withMessage("Match ID must be a string"),
   body("canceled_by")
     .notEmpty()
     .withMessage("Canceled by is required")
@@ -100,6 +95,11 @@ reservationRouter.post(
     .withMessage("Reservation ID is required")
     .isString()
     .withMessage("Reservation ID must be a string"),
+  body("match_id")
+    .notEmpty()
+    .withMessage("Match ID is required")
+    .isString()
+    .withMessage("Match ID must be a string"),
   body("canceled_by")
     .notEmpty()
     .withMessage("Canceled by is required")

@@ -49,6 +49,7 @@ import {
   updateCancelRequestStatusQuery,
 } from "../db/CancelRequestQueries";
 import { getCourtByIdQuery } from "../db/CourtQueries";
+import { emitNotificationCourt } from "../services/webSocket";
 
 export const getReservations = async (
   req: Request,
@@ -260,6 +261,9 @@ export const cancelReservation = async (
       await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
     }
 
+    // Notify users about the cancellation
+    emitNotificationCourt(reservation.rows[0].schedule_id);
+
     res.status(200).json({
       message: "Reservation cancelled successfully",
     });
@@ -343,6 +347,9 @@ export const cancelPreReservation = async (
         await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
         await updateStatusMatchQuery(match.rows[0].id, "cancelled");
         await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
+
+        // Notify users about the cancellation
+        emitNotificationCourt(reservation.rows[0].schedule_id);
       }
 
       res.status(201).json({
