@@ -12,3 +12,4 @@ DB_DATABASE=postgres<br>
 DB_PASSWORD=snmm1809<br>
 DB_PORT=5432<br>
 JWT_SECRET=probando
+CORS_ORIGIN=*
