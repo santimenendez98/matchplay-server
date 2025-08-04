@@ -1,5 +1,5 @@
 import pool from "./connection";
-import { JoinMatchModel, MatchModel } from "../types/Match";
+import { JoinMatchModel, MatchModel, SendMessageModel } from "../types/Match";
 
 /*
 ------------ MATCH ---------------
@@ -116,5 +116,24 @@ export const getMatchByReservationQuery = async (reservation_id: string) => {
   return pool.query<MatchModel>(
     `SELECT * FROM Match WHERE reservation_id = $1`,
     [reservation_id]
+  );
+};
+
+/*
+----------- MatchMessage --------------
+*/
+
+export const sendMessageToMatchQuery = async (data: SendMessageModel) => {
+  return pool.query(
+    `INSERT INTO MessageMatch (match_id, sender_id, message_content, date_sent) 
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [data.match_id, data.player_id, data.message, data.sent_at]
+  );
+};
+
+export const deleteMatchMessageByMatchIdQuery = async (match_id: string) => {
+  return pool.query(
+    `DELETE FROM MessageMatch WHERE match_id = $1 RETURNING *`,
+    [match_id]
   );
 };

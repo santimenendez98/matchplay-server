@@ -13,6 +13,13 @@ export interface JoinMatchModel {
   joined_at: string;
 }
 
+export interface SendMessageModel {
+  match_id: string;
+  player_id: string;
+  message: string;
+  sent_at?: string;
+}
+
 export interface MatchModelSuccess {
   message: string;
   data: MatchModel[];
@@ -26,4 +33,9 @@ export interface MatchGetModelSuccess {
 export interface JoinMatchModelSuccess {
   message: string;
   data: JoinMatchModel;
+}
+
+export interface sendMatchMessageModelSuccess {
+  message: string;
+  data: SendMessageModel;
 }

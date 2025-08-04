@@ -5,6 +5,8 @@ import {
   MatchModelSuccess,
   JoinMatchModel,
   JoinMatchModelSuccess,
+  SendMessageModel,
+  sendMatchMessageModelSuccess,
 } from "../types/Match";
 import {
   deleteMatchQuery,
@@ -16,6 +18,7 @@ import {
   getPlayersJoinedByMatchQuery,
   getMatchesQuery,
   quitMatchQuery,
+  sendMessageToMatchQuery,
 } from "../db/MatchQueries";
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
@@ -24,6 +27,7 @@ import {
   updateReservationStatusQuery,
 } from "../db/ReservationQueries";
 import { getCurrentTime } from "../services/addMinutes";
+import { emitMessageToMatch } from "../services/webSocket";
 
 export const getMatches = async (
   req: Request,
@@ -177,6 +181,48 @@ export const leaveMatch = async (
     res.status(200).json({
       message: "Player left match successfully",
       data: leaveData.rows[0],
+    });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+export const sendMessageToMatch = async (
+  req: Request<{}, {}, SendMessageModel>,
+  res: Response<sendMatchMessageModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { match_id, player_id, message } = req.body;
+
+    const match = await getMatchByIdQuery(match_id);
+    const account = await getAccountByIdQuery(player_id);
+
+    if (match.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Match not found" });
+    }
+
+    if (account.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Player not found" });
+    }
+
+    const messageData: SendMessageModel = {
+      match_id,
+      player_id,
+      message,
+      sent_at: getCurrentTime(),
+    };
+
+    const result = await sendMessageToMatchQuery(messageData);
+    emitMessageToMatch(messageData);
+
+    res.status(200).json({
+      message: "Message sent successfully",
+      data: result.rows[0],
     });
   } catch (error) {
     const err = error as Error;
