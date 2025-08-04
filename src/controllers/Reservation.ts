@@ -30,7 +30,6 @@ import {
 import { MatchModel, MatchGetModelSuccess } from "../types/Match";
 import {
   createMatchQuery,
-  deleteMatchMessageByMatchIdQuery,
   deleteMatchPlayerQuery,
   getMatchByReservationQuery,
   joinMatchQuery,
@@ -347,7 +346,6 @@ export const cancelPreReservation = async (
           reservation.rows[0].end_time
         );
 
-        await deleteMatchMessageByMatchIdQuery(match.rows[0].id);
         await deleteMatchPlayerQuery(match.rows[0].id);
         await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
         await updateStatusMatchQuery(match.rows[0].id, "cancelled");

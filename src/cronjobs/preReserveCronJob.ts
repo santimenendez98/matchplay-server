@@ -5,7 +5,6 @@ import {
   updateReservationStatusQuery,
 } from "../db/ReservationQueries";
 import {
-  deleteMatchMessageByMatchIdQuery,
   deleteMatchPlayerQuery,
   getMatchByIdQuery,
   updateStatusMatchQuery,
@@ -39,7 +38,6 @@ export const handleExpiredPreReserves = () => {
         if (!reservationId) continue;
 
         // Delete the match player entries
-        await deleteMatchMessageByMatchIdQuery(matchId);
         await deleteMatchPlayerQuery(matchId);
 
         // Get reservation details

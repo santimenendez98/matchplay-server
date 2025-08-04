@@ -131,9 +131,9 @@ export const sendMessageToMatchQuery = async (data: SendMessageModel) => {
   );
 };
 
-export const deleteMatchMessageByMatchIdQuery = async (match_id: string) => {
-  return pool.query(
-    `DELETE FROM MessageMatch WHERE match_id = $1 RETURNING *`,
+export const getMessagesByMatchQuery = async (match_id: string) => {
+  return pool.query<SendMessageModel>(
+    `SELECT * FROM MessageMatch WHERE match_id = $1 ORDER BY date_sent ASC`,
     [match_id]
   );
 };
