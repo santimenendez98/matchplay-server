@@ -11,5 +11,5 @@ DB_HOST=db.gacldvrhdiqcpbzwaavn.supabase.co<br>
 DB_DATABASE=postgres<br>
 DB_PASSWORD=snmm1809<br>
 DB_PORT=5432<br>
-JWT_SECRET=probando
+JWT_SECRET=probando<br>
 CORS_ORIGIN=*
