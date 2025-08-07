@@ -12,6 +12,7 @@ import { Server } from "socket.io";
 import { webSocketHandler } from "./services/webSocket";
 
 // Initialize Express app and Socket.IO server
+const port = Number(process.env.PORT) || 3000;
 const app = express();
 const server = createServer(app);
 export const io = new Server(server, {
@@ -27,11 +28,11 @@ app.use(express.json());
 app.use("/api", router);
 
 // Connect to the database and start the server
-server.listen(Number(process.env.PORT), () => {
+server.listen(port, () => {
   pool
     .connect()
     .then(() => console.log("Connected to the database successfully"));
-  console.log(`Server is running on ${process.env.API_URL}${process.env.PORT}`);
+  console.log(`Server is running on ${port}`);
   startScheduleCronJob();
   handleExpiredPreReserves();
   checkScheduleCronJob();
