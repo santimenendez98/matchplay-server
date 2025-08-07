@@ -19,6 +19,7 @@ import {
   getMatchesQuery,
   quitMatchQuery,
   sendMessageToMatchQuery,
+  getMessagesByMatchQuery,
 } from "../db/MatchQueries";
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
@@ -223,6 +224,32 @@ export const sendMessageToMatch = async (
     res.status(200).json({
       message: "Message sent successfully",
       data: result.rows[0],
+    });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+export const historyChatMatch = async (
+  req: Request<paramsModels>,
+  res: Response<sendMatchMessageModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { id } = req.params;
+
+    const messages = await getMessagesByMatchQuery(id);
+
+    if (messages.rowCount === 0) {
+      return res.status(404).json({
+        message: "No chat history found",
+        error: "Chat history not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Chat history retrieved successfully",
+      data: messages.rows,
     });
   } catch (error) {
     const err = error as Error;

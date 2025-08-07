@@ -37,5 +37,5 @@ export interface JoinMatchModelSuccess {
 
 export interface sendMatchMessageModelSuccess {
   message: string;
-  data: SendMessageModel;
+  data: SendMessageModel[];
 }

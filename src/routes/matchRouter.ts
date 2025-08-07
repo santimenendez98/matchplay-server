@@ -4,9 +4,10 @@ import {
   joinMatch,
   leaveMatch,
   sendMessageToMatch,
+  historyChatMatch,
 } from "../controllers/Match";
 import { authMiddleware, rolMiddleware } from "../middleware";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import { handleValidationErrors } from "../middleware/validatorErrors";
 
 export const matchRouter = Router();
@@ -73,6 +74,20 @@ matchRouter.post(
   handleValidationErrors,
   authMiddleware,
   sendMessageToMatch
+);
+
+// History chat for a match
+matchRouter.get(
+  "/message/history/:id",
+  param("id")
+    .notEmpty()
+    .withMessage("Match ID is required")
+    .isString()
+    .withMessage("Match ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  rolMiddleware(["admin"]),
+  historyChatMatch
 );
 
 export default matchRouter;

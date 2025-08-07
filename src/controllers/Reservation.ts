@@ -30,7 +30,6 @@ import {
 import { MatchModel, MatchGetModelSuccess } from "../types/Match";
 import {
   createMatchQuery,
-  deleteMatchMessageByMatchIdQuery,
   deleteMatchPlayerQuery,
   getMatchByReservationQuery,
   joinMatchQuery,
@@ -54,6 +53,7 @@ import {
   emitNotificationCancelRequest,
   emitNotificationCourt,
 } from "../services/webSocket";
+import { createPayment } from "../services/mercadoPago";
 
 export const getReservations = async (
   req: Request,
@@ -118,7 +118,7 @@ export const createReservation = async (
 
     // Calculate the total price
     const getPrice = await getPriceForReservationQuery(schedule_id);
-    const totalPrice: number =
+    const totalPrice =
       time_reserved === 1
         ? getPrice.rows[0].hourprice
         : getPrice.rows[0].halfprice;
@@ -170,9 +170,26 @@ export const createReservation = async (
       });
     }
 
+    // Create the payment
+
+    const paymentData = {
+      items: [
+        {
+          id: scheduleRes.rows[0].id ? scheduleRes.rows[0].id : "0",
+          title: `Reservation for ${start_time} on ${scheduleRes.rows[0].schedule_date}`,
+          quantity: 1,
+          unit_price: Number(totalPrice),
+        },
+      ],
+      external_reference: result.rows[0].id ? result.rows[0].id : "0",
+    };
+
+    const paymentResponse = await createPayment(paymentData);
+
     return res.status(201).json({
       message: "Reservation created successfully",
       data: result.rows[0],
+      payment_url: paymentResponse,
     });
   } catch (error) {
     const err = error as Error;
@@ -347,7 +364,6 @@ export const cancelPreReservation = async (
           reservation.rows[0].end_time
         );
 
-        await deleteMatchMessageByMatchIdQuery(match.rows[0].id);
         await deleteMatchPlayerQuery(match.rows[0].id);
         await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
         await updateStatusMatchQuery(match.rows[0].id, "cancelled");
