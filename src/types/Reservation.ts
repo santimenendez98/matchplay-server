@@ -27,6 +27,7 @@ export interface ReservationModelSuccess {
 export interface ReservationGetModelSuccess {
   message: string;
   data: ReservationModel;
+  payment_url?: string;
 }
 
 export type updateReservationModel = Pick<

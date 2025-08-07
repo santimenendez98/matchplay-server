@@ -117,3 +117,14 @@ export const leaveMatchRoom = (player_id: string, match_id: string) => {
   console.log(`Leaving match room: ${roomName} for player: ${player_id}`);
   return roomName;
 };
+
+// Emit payment status
+
+export const emitPaymentStatus = (id: number, external_reference: string) => {
+  io.emit("payment_success", {
+    id,
+    external_reference,
+  });
+
+  console.log("Payment status emitted success");
+};
