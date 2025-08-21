@@ -1,6 +1,9 @@
 import pool from "../db/connection";
 import { CancelModel } from "../types/CancelReservation";
+import { PaymentHistory } from "../types/Payment";
 import { PreReserveModel, ReservationModel } from "../types/Reservation";
+
+// RESERVATION QUERIES
 
 export const getAllReservationsQuery = () =>
   pool.query<ReservationModel>(`SELECT * FROM Reservation`);
@@ -21,7 +24,7 @@ export const createReservationQuery = (reservation: ReservationModel) =>
       reservation.time_reserved,
       reservation.reservation_date,
       reservation.is_match,
-      reservation.status[0],
+      reservation.status,
     ]
   );
 
@@ -43,7 +46,7 @@ export const checkReservationExistsQuery = (
     [account_id, current_time]
   );
 
-// Pre-reservation
+// PRE-RESERVATION QUERIES
 
 export const createPreReserveQuery = (preReserve: {
   court_id: string;
@@ -87,7 +90,7 @@ export const deletePreReserveQuery = (match_id: string) => {
   ]);
 };
 
-// Cancel Reservation History
+// CANCEL RESERVATION QUERIES
 
 export const cancelReservationQuery = (cancelation: CancelModel) => {
   return pool.query(
@@ -99,6 +102,24 @@ export const cancelReservationQuery = (cancelation: CancelModel) => {
       cancelation.canceled_by,
       cancelation.cancelation_reason,
       cancelation.cancelation_date,
+    ]
+  );
+};
+
+// HISTORY PAYMENT QUERIES
+
+export const savePaymentHistoryQuery = (data: PaymentHistory) => {
+  return pool.query(
+    `INSERT INTO Payment (user_id, reservation_id, total_amount, payment_method, payment_status, payment_date, paid_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [
+      data.user_id,
+      data.reservation_id,
+      data.amount,
+      data.payment_method,
+      data.payment_status,
+      data.payment_date,
+      data.paid_by,
     ]
   );
 };

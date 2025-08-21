@@ -4,13 +4,14 @@ import { AccountModel } from "../types/Account";
 export const getAllAccountsQuery = () =>
   pool.query<AccountModel>(`SELECT * FROM Account`);
 
-export const getAccountByIdQuery = (id: number | string) =>
+export const getAccountByIdQuery = (id: string) =>
   pool.query<AccountModel>(`SELECT * FROM Account WHERE id = $1`, [id]);
 
 export const createAccountQuery = (account: AccountModel) =>
   pool.query<AccountModel>(
-    `INSERT INTO Account (name, email, password, birthdate, phone, account_type) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    `INSERT INTO Account (id_customer, name, email, password, birthdate, phone, account_type) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
     [
+      account.id_customer,
       account.name,
       account.email,
       account.password,

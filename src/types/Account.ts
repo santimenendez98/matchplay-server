@@ -1,5 +1,6 @@
 export interface AccountModel {
   id?: number;
+  id_customer?: string;
   name: string;
   email: string;
   password: string;

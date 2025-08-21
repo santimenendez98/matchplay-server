@@ -14,6 +14,7 @@ import {
   deleteAccountQuery,
   updateAccoutQuery,
 } from "../db/AccountQueries";
+import { createCustomer, getCustomer } from "../services/mercadoPago";
 
 export const getAccounts = async (
   req: Request,
@@ -53,20 +54,37 @@ export const createAccount = async (
 ) => {
   const { name, email, password, birthdate, phone, account_type } = req.body;
   try {
+    let idCustomer;
     const hashedPassword = await hashPassword(password);
-    const result = await createAccountQuery({
-      name,
-      email,
-      password: hashedPassword,
-      birthdate,
-      phone,
-      account_type,
-    });
+    const idCustomerData = await getCustomer(email);
 
-    res.status(201).json({
-      message: "Account created successfully",
-      data: result.rows[0],
-    });
+    if (!idCustomerData) {
+      idCustomer = await createCustomer({ email });
+      console.log("Customer created in MercadoPago");
+    } else {
+      idCustomer = idCustomerData;
+      console.log("Customer already exists in MercadoPago");
+    }
+
+    console.log("idCustomer:", idCustomer);
+    console.log("id", idCustomer?.id);
+
+    if (idCustomer) {
+      const result = await createAccountQuery({
+        id_customer: idCustomer.id,
+        name,
+        email,
+        password: hashedPassword,
+        birthdate,
+        phone,
+        account_type,
+      });
+
+      res.status(201).json({
+        message: "Account created successfully",
+        data: result.rows[0],
+      });
+    }
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ message: "An error occurred", error: err.message });

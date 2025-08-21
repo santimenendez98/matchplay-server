@@ -53,8 +53,7 @@ import {
   emitNotificationCancelRequest,
   emitNotificationCourt,
 } from "../services/webSocket";
-import { createPayment } from "../services/mercadoPago";
-
+import { getAccountByIdQuery } from "../db/AccountQueries";
 export const getReservations = async (
   req: Request,
   res: Response<ReservationModelSuccess | errorResponseModel>
@@ -83,6 +82,13 @@ export const createReservation = async (
     // Get the schedule details
     const scheduleRes = await getScheduleById(schedule_id);
     const reservation = await checkReservationExistsQuery(account_id, today);
+    const account = await getAccountByIdQuery(account_id);
+
+    if (account.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Account not found" });
+    }
 
     if (scheduleRes.rows.length === 0) {
       return res
@@ -133,7 +139,7 @@ export const createReservation = async (
       time_reserved,
       reservation_date: today,
       is_match,
-      status: ["pending"],
+      status: "pending",
     });
 
     // Update the availability of the schedule
@@ -170,26 +176,9 @@ export const createReservation = async (
       });
     }
 
-    // Create the payment
-
-    const paymentData = {
-      items: [
-        {
-          id: scheduleRes.rows[0].id ? scheduleRes.rows[0].id : "0",
-          title: `Reservation for ${start_time} on ${scheduleRes.rows[0].schedule_date}`,
-          quantity: 1,
-          unit_price: Number(totalPrice),
-        },
-      ],
-      external_reference: result.rows[0].id ? result.rows[0].id : "0",
-    };
-
-    const paymentResponse = await createPayment(paymentData);
-
     return res.status(201).json({
       message: "Reservation created successfully",
       data: result.rows[0],
-      payment_url: paymentResponse,
     });
   } catch (error) {
     const err = error as Error;

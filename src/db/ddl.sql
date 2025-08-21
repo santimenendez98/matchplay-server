@@ -21,6 +21,7 @@ DROP TABLE IF EXISTS Account CASCADE;
 
 CREATE TABLE Account (
   id SERIAL PRIMARY KEY,
+  id_customer VARCHAR(100) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
@@ -124,6 +125,7 @@ CREATE TABLE MatchPlayer (
   match_id INTEGER NOT NULL REFERENCES Match(id),
   player_id INTEGER NOT NULL REFERENCES Account(id),
   joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  payment_id INTEGER REFERENCES Payment(id),
   PRIMARY KEY (match_id, player_id)
 );
 
@@ -138,7 +140,7 @@ CREATE TABLE PreRegistration (
 CREATE TABLE Payment (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES Account(id),
-  match_id INTEGER NOT NULL REFERENCES Match(id),
+  reservation_id INTEGER NOT NULL REFERENCES Reservation(id),
   total_amount DECIMAL(10, 2) NOT NULL,
   payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('debit card', 'cash', 'bank_transfer')),
   payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN ('pending', 'completed', 'failed')),

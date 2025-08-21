@@ -9,6 +9,7 @@ import {
 import { authMiddleware, rolMiddleware } from "../middleware";
 import { body } from "express-validator";
 import { handleValidationErrors } from "../middleware/validatorErrors";
+import { paymentReservationWithCard } from "../controllers/Payment";
 
 export const reservationRouter = Router();
 
@@ -103,6 +104,62 @@ reservationRouter.post(
   handleValidationErrors,
   authMiddleware,
   cancelPreReservation
+);
+
+// Pay for a reservation
+reservationRouter.post(
+  "/pay",
+  body("reservation_id")
+    .notEmpty()
+    .withMessage("Reservation ID is required")
+    .isString()
+    .withMessage("Reservation ID must be a string"),
+  body("customer_id")
+    .notEmpty()
+    .withMessage("Customer ID is required")
+    .isString()
+    .withMessage("Customer ID must be a string"),
+  body("amount")
+    .notEmpty()
+    .withMessage("Amount is required")
+    .isNumeric()
+    .withMessage("Amount must be a number"),
+  body("payment_data.card_number")
+    .notEmpty()
+    .withMessage("Card number is required")
+    .isString()
+    .withMessage("Card number must be a string"),
+  body("payment_data.expiration_month")
+    .notEmpty()
+    .withMessage("Expiration month is required")
+    .isNumeric()
+    .withMessage("Expiration month must be a number"),
+  body("payment_data.expiration_year")
+    .notEmpty()
+    .withMessage("Expiration year is required")
+    .isNumeric()
+    .withMessage("Expiration year must be a number"),
+  body("payment_data.security_code")
+    .notEmpty()
+    .withMessage("Security code is required")
+    .isString()
+    .withMessage("Security code must be a string"),
+  body("payment_data.cardholder.name")
+    .notEmpty()
+    .withMessage("Cardholder name is required")
+    .isString()
+    .withMessage("Cardholder name must be a string"),
+  body("payment_data.cardholder.identification.type")
+    .notEmpty()
+    .withMessage("Cardholder identification type is required")
+    .isString()
+    .withMessage("Cardholder identification type must be a string"),
+  body("payment_data.cardholder.identification.number")
+    .notEmpty()
+    .withMessage("Cardholder identification number is required")
+    .isString()
+    .withMessage("Cardholder identification number must be a string"),
+  paymentReservationWithCard
 );
 
 export default reservationRouter;
