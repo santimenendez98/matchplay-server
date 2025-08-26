@@ -11,6 +11,7 @@ export interface JoinMatchModel {
   match_id: string;
   player_id: string;
   joined_at: string;
+  slots: string;
 }
 
 export interface SendMessageModel {

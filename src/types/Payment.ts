@@ -1,16 +1,14 @@
 export interface PaymentModel {
   id: string;
-  reservation_id: string;
   token: string;
   amount: number;
   description: string;
-  payment_method: "debit_card" | "credit_card";
 }
 
 export interface PaymentReservationBody {
   account_id: string;
+  paid_by?: string;
   reservation_id: string;
-  amount: number;
   payment_data: GenerateTokenModel;
 }
 
@@ -46,30 +44,22 @@ export interface TokenSuccessResponse {
 
 export interface PaymentReservationResponse {
   message: string;
-  data: {
-    id: string;
-    status:
-      | "pending"
-      | "approved"
-      | "authorized"
-      | "in_process"
-      | "in_mediation"
-      | "rejected"
-      | "cancelled"
-      | "refunded"
-      | "charged_back";
-  };
+  data: responsePayment;
 }
 
 export interface PaymentHistory {
   user_id: string;
   reservation_id: string;
   amount: number;
-  payment_method: "debit card" | "cash" | "bank_transfer";
   payment_status: "pending" | "completed" | "failed";
   payment_date: string;
   paid_by: string;
 }
+
+export type DebitPaymentHistory = PaymentHistory & {
+  payment_method: "debit card";
+  mp_payment_id: string;
+};
 
 export type SavePaymentModel = Pick<PaymentModel, "id" | "token">;
 
@@ -81,3 +71,18 @@ export type CreateCustomerResponse = {
   message: string;
   data: Pick<PaymentModel, "id">;
 };
+
+export interface responsePayment {
+  id: string;
+  status:
+    | "pending"
+    | "approved"
+    | "authorized"
+    | "in_process"
+    | "in_mediation"
+    | "rejected"
+    | "cancelled"
+    | "refunded"
+    | "charged_back";
+  payment_method: string;
+}

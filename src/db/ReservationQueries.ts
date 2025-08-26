@@ -1,6 +1,6 @@
 import pool from "../db/connection";
 import { CancelModel } from "../types/CancelReservation";
-import { PaymentHistory } from "../types/Payment";
+import { DebitPaymentHistory } from "../types/Payment";
 import { PreReserveModel, ReservationModel } from "../types/Reservation";
 
 // RESERVATION QUERIES
@@ -108,10 +108,10 @@ export const cancelReservationQuery = (cancelation: CancelModel) => {
 
 // HISTORY PAYMENT QUERIES
 
-export const savePaymentHistoryQuery = (data: PaymentHistory) => {
+export const savePaymentHistoryQuery = (data: DebitPaymentHistory) => {
   return pool.query(
-    `INSERT INTO Payment (user_id, reservation_id, total_amount, payment_method, payment_status, payment_date, paid_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    `INSERT INTO Payment (user_id, reservation_id, total_amount, payment_method, payment_status, payment_date, paid_by, mp_payment_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
     [
       data.user_id,
       data.reservation_id,
@@ -120,6 +120,16 @@ export const savePaymentHistoryQuery = (data: PaymentHistory) => {
       data.payment_status,
       data.payment_date,
       data.paid_by,
+      data.mp_payment_id,
     ]
   );
 };
+
+export const verifyUserPaidReservationQuery = (
+  user_id: string,
+  reservation_id: string
+) =>
+  pool.query(
+    `SELECT * FROM Payment WHERE user_id = $1 AND reservation_id = $2`,
+    [user_id, reservation_id]
+  );

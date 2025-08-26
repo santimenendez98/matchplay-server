@@ -15,16 +15,16 @@ import {
   getCantPlayersByMatchQuery,
   updatePlayersCountQuery,
   updateStatusMatchQuery,
-  getPlayersJoinedByMatchQuery,
   getMatchesQuery,
   quitMatchQuery,
   sendMessageToMatchQuery,
   getMessagesByMatchQuery,
+  getPlayerJoinedByMatchQuery,
+  getAllPlayersByMatchQuery,
 } from "../db/MatchQueries";
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
   deleteReservationQuery,
-  updatePreReserveStatusQuery,
   updateReservationStatusQuery,
 } from "../db/ReservationQueries";
 import { getCurrentTime } from "../services/addMinutes";
@@ -79,7 +79,7 @@ export const joinMatch = async (
     const match = await getMatchByIdQuery(match_id);
     const player = await getAccountByIdQuery(player_id);
     const cantPlayers = await getCantPlayersByMatchQuery(match_id);
-    const findPlayer = await getPlayersJoinedByMatchQuery(match_id, player_id);
+    const findPlayer = await getPlayerJoinedByMatchQuery(match_id, player_id);
 
     if (match.rowCount === 0) {
       return res
@@ -122,7 +122,6 @@ export const joinMatch = async (
         updatePlayer.rows[0].current_players === cantPlayers.rows[0].max_players
       ) {
         await updateStatusMatchQuery(match_id, "completed");
-        await updatePreReserveStatusQuery(match_id, "confirmed");
         await updateReservationStatusQuery(
           match.rows[0].reservation_id,
           "confirmed"
@@ -130,10 +129,16 @@ export const joinMatch = async (
       }
 
       const joinData = await joinMatchQuery(match_id, player_id, joined_at);
+      const slots = await getAllPlayersByMatchQuery(match_id);
 
       res.status(200).json({
         message: "Player joined match successfully",
-        data: joinData.rows[0],
+        data: {
+          ...joinData.rows[0],
+          slots: `${
+            Number(cantPlayers.rows[0].max_players) - slots.rows.length
+          }/${cantPlayers.rows[0].max_players}`,
+        },
       });
     }
   } catch (error) {

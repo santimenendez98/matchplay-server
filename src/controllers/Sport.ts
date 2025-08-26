@@ -9,6 +9,7 @@ import {
   createSportQuery,
   getAllSportsQuery,
   deleteSportQuery,
+  existingSportByNameQuery,
 } from "../db/SportQueries";
 
 export const getSports = async (
@@ -30,6 +31,14 @@ export const createSport = async (
 ) => {
   const { name, max_players } = req.body;
   try {
+    const existingSport = await existingSportByNameQuery(name);
+
+    if (existingSport.rows.length > 0) {
+      return res
+        .status(400)
+        .json({ message: "An error occurred", error: "Sport already exists" });
+    }
+
     const newSport = await createSportQuery(name, max_players);
     res.status(201).json({ message: "Sport created", data: newSport.rows[0] });
   } catch (error) {

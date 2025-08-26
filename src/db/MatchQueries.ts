@@ -64,6 +64,13 @@ export const getCantPlayersByMatchQuery = async (match_id: string) => {
   );
 };
 
+export const getMatchByReservationQuery = async (reservation_id: string) => {
+  return pool.query<MatchModel>(
+    `SELECT * FROM Match WHERE reservation_id = $1`,
+    [reservation_id]
+  );
+};
+
 /*
 ----------- MatchPlayer --------------
 */
@@ -73,7 +80,7 @@ export const joinMatchQuery = async (
   player_id: string,
   joined_at: string
 ) => {
-  return pool.query<JoinMatchModel>(
+  return pool.query(
     `INSERT INTO MatchPlayer (match_id, player_id, joined_at) 
      VALUES ($1, $2, $3) RETURNING *`,
     [match_id, player_id, joined_at]
@@ -100,7 +107,7 @@ export const deleteMatchPlayerQuery = async (match_id: string) => {
   ]);
 };
 
-export const getPlayersJoinedByMatchQuery = async (
+export const getPlayerJoinedByMatchQuery = async (
   match_id: string,
   player_id: string
 ) => {
@@ -112,10 +119,12 @@ export const getPlayersJoinedByMatchQuery = async (
   );
 };
 
-export const getMatchByReservationQuery = async (reservation_id: string) => {
-  return pool.query<MatchModel>(
-    `SELECT * FROM Match WHERE reservation_id = $1`,
-    [reservation_id]
+export const getAllPlayersByMatchQuery = async (match_id: string) => {
+  return pool.query<JoinMatchModel>(
+    `SELECT *
+    FROM MatchPlayer
+    WHERE match_id = $1`,
+    [match_id]
   );
 };
 

@@ -1,11 +1,21 @@
 import { MercadoPagoConfig, Customer } from "mercadopago";
 import {
   CreateCustomer,
+  DebitPaymentHistory,
   GenerateTokenModel,
   GenerateTokenResponse,
   PaymentModel,
+  responsePayment,
   SavePaymentModel,
 } from "../types/Payment";
+import {
+  getCantPlayersByMatchQuery,
+  getMatchByReservationQuery,
+} from "../db/MatchQueries";
+import {
+  savePaymentHistoryQuery,
+  verifyUserPaidReservationQuery,
+} from "../db/ReservationQueries";
 
 // Initialize MercadoPago with your access token
 const mercadopago = new MercadoPagoConfig({
@@ -68,7 +78,7 @@ export const savePayment = async (data: SavePaymentModel) => {
 // Create a payment in MercadoPago
 export const createPayment = async (data: PaymentModel) => {
   try {
-    const { id, token, amount, description, payment_method } = data;
+    const { id, token, amount, description } = data;
     const payment = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
       headers: {
@@ -79,7 +89,6 @@ export const createPayment = async (data: PaymentModel) => {
         transaction_amount: amount,
         installments: 1,
         description: description,
-        payment_method_id: payment_method,
         payer: {
           type: "customer",
           id: id,
@@ -88,11 +97,17 @@ export const createPayment = async (data: PaymentModel) => {
       }),
     });
 
-    const response = await payment.json();
+    const paymentResponse = await payment.json();
 
     if (!payment.ok) {
-      throw new Error(response.message);
+      throw new Error(paymentResponse.message);
     }
+
+    const response: responsePayment = {
+      id: paymentResponse.id,
+      status: paymentResponse.status,
+      payment_method: paymentResponse.payment_method.id,
+    };
 
     return response;
   } catch (error) {
@@ -128,35 +143,6 @@ export const getCustomer = async (email: string) => {
   }
 };
 
-// Get payment method by BIN
-export const getPaymentMethod = async (bin: string) => {
-  try {
-    const paymentMethods = await fetch(
-      `https://api.mercadopago.com/v1/payment_methods/search?bin=${bin}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}`,
-        },
-      }
-    );
-
-    if (!paymentMethods.ok) {
-      throw new Error("Failed to retrieve payment methods");
-    }
-
-    const data = await paymentMethods.json();
-
-    const cards = data.results.filter(
-      (method: any) => method.status === "active"
-    );
-
-    return cards.id;
-  } catch (error) {
-    console.error("Error getting payment method:", error);
-    throw error;
-  }
-};
-
 // Generate a token
 export const getToken = async (paymentData: GenerateTokenModel) => {
   try {
@@ -166,7 +152,7 @@ export const getToken = async (paymentData: GenerateTokenModel) => {
         Authorization: `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(paymentData),
+      body: JSON.stringify(paymentData, null, 2),
     });
 
     if (!token.ok) {
@@ -191,4 +177,110 @@ export const getToken = async (paymentData: GenerateTokenModel) => {
     console.error("Error generating token:", error);
     throw error;
   }
+};
+
+// Process payment with debit card
+export const processDebitPayment = async (
+  customer_id: string,
+  token: { id: string },
+  amount: number,
+  reservation_id: string,
+  today: string,
+  account_id: string,
+  paid_by?: string
+) => {
+  const data = {
+    id: customer_id,
+    token: token.id,
+    amount,
+    description: `Reservation id ${reservation_id} for ${today}`,
+  };
+
+  const paymentResponse = await createPayment(data);
+
+  if (paymentResponse.status !== "approved") {
+    throw new Error("PAYMENT_NOT_APPROVED");
+  }
+
+  if (paymentResponse.payment_method.slice(0, 3) !== "deb") {
+    throw new Error("ONLY_DEBIT_ALLOWED");
+  }
+
+  const dataPayment: DebitPaymentHistory = {
+    user_id: account_id,
+    reservation_id,
+    amount,
+    payment_status: "completed",
+    payment_method: "debit card",
+    payment_date: today,
+    paid_by: paid_by ?? account_id,
+    mp_payment_id: paymentResponse.id,
+  };
+
+  await savePaymentHistoryQuery(dataPayment);
+
+  return paymentResponse;
+};
+
+// Validate reservation existence and status
+export const validateReservation = (reservation: any) => {
+  if (reservation.rows.length === 0) {
+    throw new Error("RESERVATION_NOT_FOUND");
+  }
+
+  if (reservation.rows[0].status !== "pending") {
+    throw new Error(
+      `RESERVATION_STATUS_${reservation.rows[0].status.toUpperCase()}`
+    );
+  }
+};
+
+// Handle payment flow when reservation is a match.
+export const handleMatchPayment = async (
+  reservation: any,
+  reservation_id: string,
+  account_id: string,
+  customer_id: string,
+  token: { id: string },
+  today: string,
+  paid_by?: string
+) => {
+  const match = await getMatchByReservationQuery(reservation_id);
+  if (match.rows.length === 0) {
+    throw new Error("MATCH_NOT_FOUND");
+  }
+
+  if (match.rows[0].status !== "completed") {
+    throw new Error(`MATCH_STATUS_${match.rows[0].status?.toUpperCase()}`);
+  }
+
+  // Verify if user already paid
+  const verifyUserPaid = await verifyUserPaidReservationQuery(
+    account_id,
+    reservation_id
+  );
+  if (verifyUserPaid.rows.length > 0) {
+    throw new Error("USER_ALREADY_PAID");
+  }
+
+  // Calculate amount to pay
+  const matchId = match.rows[0].id;
+  if (!matchId) {
+    throw new Error("MATCH_ID_UNDEFINED");
+  }
+  const amountPlayers = await getCantPlayersByMatchQuery(matchId);
+  const price = reservation.rows[0].price / amountPlayers.rows[0].max_players;
+
+  // Process payment
+  const paymentResponse = await processDebitPayment(
+    customer_id,
+    token,
+    price,
+    reservation_id,
+    today,
+    account_id,
+    paid_by
+  );
+
+  return paymentResponse;
 };

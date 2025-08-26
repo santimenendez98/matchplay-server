@@ -13,6 +13,7 @@ import {
   createAccountQuery,
   deleteAccountQuery,
   updateAccoutQuery,
+  getAccountByEmailQuery,
 } from "../db/AccountQueries";
 import { createCustomer, getCustomer } from "../services/mercadoPago";
 
@@ -57,6 +58,13 @@ export const createAccount = async (
     let idCustomer;
     const hashedPassword = await hashPassword(password);
     const idCustomerData = await getCustomer(email);
+    const existingAccount = await getAccountByEmailQuery(email);
+
+    if (existingAccount.rows.length > 0) {
+      return res
+        .status(400)
+        .json({ message: "An error ocurred", error: "Account already exists" });
+    }
 
     if (!idCustomerData) {
       idCustomer = await createCustomer({ email });
@@ -65,9 +73,6 @@ export const createAccount = async (
       idCustomer = idCustomerData;
       console.log("Customer already exists in MercadoPago");
     }
-
-    console.log("idCustomer:", idCustomer);
-    console.log("id", idCustomer?.id);
 
     if (idCustomer) {
       const result = await createAccountQuery({

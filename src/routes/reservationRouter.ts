@@ -114,16 +114,12 @@ reservationRouter.post(
     .withMessage("Reservation ID is required")
     .isString()
     .withMessage("Reservation ID must be a string"),
-  body("customer_id")
+  body("account_id")
     .notEmpty()
-    .withMessage("Customer ID is required")
+    .withMessage("Account ID is required")
     .isString()
-    .withMessage("Customer ID must be a string"),
-  body("amount")
-    .notEmpty()
-    .withMessage("Amount is required")
-    .isNumeric()
-    .withMessage("Amount must be a number"),
+    .withMessage("Account ID must be a string"),
+  body("paid_by").isString().withMessage("Paid by must be a string"),
   body("payment_data.card_number")
     .notEmpty()
     .withMessage("Card number is required")

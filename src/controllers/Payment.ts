@@ -2,103 +2,148 @@ import { Request, Response } from "express";
 import { getCurrentTime } from "../services/addMinutes";
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
-  createPayment,
-  getPaymentMethod,
   getToken,
+  handleMatchPayment,
+  processDebitPayment,
+  validateReservation,
 } from "../services/mercadoPago";
 import {
   getReservationWithIdQuery,
-  savePaymentHistoryQuery,
   updateReservationStatusQuery,
 } from "../db/ReservationQueries";
 import {
-  PaymentHistory,
   PaymentReservationBody,
   PaymentReservationResponse,
 } from "../types/Payment";
 import { errorResponseModel } from "../types";
 
+// Controller to handle payment for a reservation with card details
 export const paymentReservationWithCard = async (
   req: Request<{}, {}, PaymentReservationBody>,
   res: Response<PaymentReservationResponse | errorResponseModel>
 ) => {
   try {
-    const { account_id, reservation_id, amount, payment_data } = req.body;
+    const { account_id, reservation_id, payment_data, paid_by } = req.body;
 
     const account = await getAccountByIdQuery(account_id);
     const reservation = await getReservationWithIdQuery(reservation_id);
-    const customer_id = account.rows[0].id_customer;
     const today = getCurrentTime();
-    const token = await getToken(payment_data);
-    const payment_method = await getPaymentMethod(token.first_six_digits);
 
+    if (account.rows.length === 0) {
+      return res.status(404).json({
+        message: "Account not found",
+        error: "ACCOUNT_NOT_FOUND",
+      });
+    }
+
+    const customer_id = account.rows[0].id_customer;
     if (!customer_id) {
       return res.status(404).json({
-        message: "An error ocurred",
-        error: "Customer not found",
+        message: "Customer not found in MercadoPago",
+        error: "CUSTOMER_ID_MISSING",
       });
     }
 
-    if (reservation.rows.length === 0) {
-      return res.status(404).json({
-        message: "An error ocurred",
-        error: "Reservation not found",
-      });
+    if (paid_by) {
+      const accountPaidBy = await getAccountByIdQuery(paid_by);
+      if (accountPaidBy.rows.length === 0) {
+        return res.status(404).json({
+          message: "Account who paid not found",
+          error: "PAID_BY_NOT_FOUND",
+        });
+      }
     }
 
-    // Check if reservation status is pending
-    if (reservation.rows[0].status !== "pending") {
-      return res.status(400).json({
-        message: "An error ocurred",
-        error: `Reservation status is "${reservation.rows[0].status}", cannot proceed with payment`,
-      });
+    validateReservation(reservation);
+
+    // Get token from card details
+    const token = await getToken(payment_data);
+
+    let paymentResponse;
+
+    if (reservation.rows[0].is_match) {
+      paymentResponse = await handleMatchPayment(
+        reservation,
+        reservation_id,
+        account_id,
+        customer_id,
+        token,
+        today,
+        paid_by
+      );
+    } else {
+      // Process payment for regular reservation
+      paymentResponse = await processDebitPayment(
+        customer_id,
+        token,
+        reservation.rows[0].price,
+        reservation_id,
+        today,
+        account_id
+      );
+
+      // Update reservation status to confirmed
+      await updateReservationStatusQuery(reservation_id, "confirmed");
     }
-
-    //Data about payment
-    const data = {
-      id: customer_id.toString(),
-      reservation_id,
-      token: token.id,
-      amount,
-      description: `Reservation id ${reservation_id} for ${today}`,
-      payment_method,
-    };
-
-    //Create Payment
-    const response = await createPayment(data);
-    console.log("Payment response:", response);
-
-    if (response.status !== "approved") {
-      return res.status(400).json({
-        message: "An error ocurred",
-        error: "Payment cannot completed",
-      });
-    }
-
-    //Update status of reservation
-    await updateReservationStatusQuery(reservation_id, "confirmed");
-
-    //Save Payment on history
-    const dataPayment: PaymentHistory = {
-      user_id: account_id,
-      reservation_id,
-      amount,
-      payment_method: "debit card",
-      payment_status: "completed",
-      payment_date: today,
-      paid_by: account_id,
-    };
-
-    await savePaymentHistoryQuery(dataPayment);
 
     return res.status(200).json({
-      message: "Payment created success",
-      data: response,
+      message: "Payment created successfully",
+      data: paymentResponse,
     });
   } catch (error) {
     const err = error as Error;
-    res.status(500).json({
-      message: "Error creating payment",
+
+    // Map errors to HTTP status codes and clear messages
+    const errorMap: Record<string, { status: number; message: string }> = {
+      ACCOUNT_NOT_FOUND: { status: 404, message: "Account not found" },
+      CUSTOMER_ID_MISSING: {
+        status: 404,
+        message: "Customer ID missing in MP",
+      },
+      PAID_BY_NOT_FOUND: { status: 404, message: "Paid by account not found" },
+      RESERVATION_NOT_FOUND: { status: 404, message: "Reservation not found" },
+      RESERVATION_STATUS_CONFIRMED: {
+        status: 400,
+        message: "Reservation already confirmed",
+      },
+      RESERVATION_STATUS_CANCELLED: {
+        status: 400,
+        message: "Reservation cancelled",
+      },
+      MATCH_NOT_FOUND: {
+        status: 404,
+        message: "Match not found for this reservation",
+      },
+      MATCH_STATUS_PENDING: {
+        status: 400,
+        message: "Match still pending, cannot pay",
+      },
+      MATCH_STATUS_CANCELLED: {
+        status: 400,
+        message: "Match cancelled, cannot pay",
+      },
+      USER_ALREADY_PAID: {
+        status: 400,
+        message: "User already paid for this reservation",
+      },
+      PAYMENT_NOT_APPROVED: { status: 400, message: "Payment not approved" },
+      ONLY_DEBIT_ALLOWED: {
+        status: 400,
+        message: "Only debit cards are allowed",
+      },
+    };
+
+    const mappedError = errorMap[err.message];
+
+    if (mappedError) {
+      return res.status(mappedError.status).json({
+        message: mappedError.message,
+        error: err.message,
+      });
+    }
+
+    return res.status(500).json({
+      message: "Unexpected error creating payment",
       error: err.message,
     });
   }
