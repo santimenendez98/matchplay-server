@@ -12,6 +12,7 @@ import {
   existingSportByNameQuery,
 } from "../db/SportQueries";
 
+// Get all sports
 export const getSports = async (
   req: Request,
   res: Response<SportModelSuccess | errorResponseModel>
@@ -25,6 +26,7 @@ export const getSports = async (
   }
 };
 
+// Create a new sport
 export const createSport = async (
   req: Request<{}, {}, SportModel>,
   res: Response<SportGetModelSuccess | errorResponseModel>
@@ -47,6 +49,7 @@ export const createSport = async (
   }
 };
 
+// Delete a sport
 export const deleteSport = async (
   req: Request<paramsModels>,
   res: Response<SportGetModelSuccess | errorResponseModel>

@@ -2,7 +2,7 @@ import { Response, Request } from "express";
 import generateScheduleForDay from "../services/scheduleService";
 import { addDays } from "date-fns";
 import {
-  addMinutesToTime,
+  addOrRemoveMinutresToTime,
   getCurrentTime,
   timeToMinutes,
 } from "../services/addMinutes";
@@ -24,6 +24,7 @@ import {
 } from "../db/ScheduleCourtWeekQueries";
 import { createWeekPriceQuery } from "../db/ScheduleWeekPriceQueries";
 
+// Get all weekly court schedules
 export const getScheduleCourtWeek = async (
   req: Request,
   res: Response<WeekScheduleCourtModelSuccess | errorResponseModel>
@@ -39,6 +40,7 @@ export const getScheduleCourtWeek = async (
   }
 };
 
+// Create a new weekly court schedule
 export const createScheduleCourtWeek = async (
   req: Request<{}, {}, WeekScheduleCourtModel>,
   res: Response<WeekScheduleCourtGetModelSuccess | errorResponseModel>
@@ -105,6 +107,7 @@ export const createScheduleCourtWeek = async (
   }
 };
 
+// Update an existing weekly court schedule
 export const updateScheduleCourtWeek = async (
   req: Request<paramsModels, {}, updateWeekScheduleCourtModel>,
   res: Response<WeekScheduleCourtModelSuccess | errorResponseModel>
@@ -158,6 +161,7 @@ export const updateScheduleCourtWeek = async (
   }
 };
 
+// Delete a weekly court schedule
 export const deleteScheduleCourtWeek = async (
   req: Request<paramsModels>,
   res: Response<WeekScheduleCourtGetModelSuccess | errorResponseModel>
@@ -182,6 +186,7 @@ export const deleteScheduleCourtWeek = async (
   }
 };
 
+// Generate weekly schedule for a court
 export const generateScheduleCourtWeek = async (
   req: Request<{}, {}, WeekScheduleCourtModel>,
   res: Response<WeekScheduleCourtGetModelSuccess | errorResponseModel>
@@ -201,7 +206,7 @@ export const generateScheduleCourtWeek = async (
     let currentTime = start_time;
 
     while (timeToMinutes(currentTime) + 30 <= timeToMinutes(end_time)) {
-      const nextTime = addMinutesToTime(currentTime, 30);
+      const nextTime = addOrRemoveMinutresToTime(currentTime, "+", 30);
 
       const overlap = await existingOneOverlappingQuery(
         court_id,

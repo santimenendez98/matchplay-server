@@ -15,6 +15,7 @@ import {
 } from "../db/ComplexQueries";
 import { getAccountAdminQuery } from "../db/AccountQueries";
 
+// Get all complexes
 export const getComplexData = async (
   req: Request,
   res: Response<complexModelSuccess | errorResponseModel>
@@ -28,6 +29,7 @@ export const getComplexData = async (
   }
 };
 
+// Create a new complex
 export const createComplexData = async (
   req: Request<{}, {}, complexModel>,
   res: Response<complexGetModelSuccess | errorResponseModel>
@@ -64,6 +66,7 @@ export const createComplexData = async (
   }
 };
 
+// Delete a complex
 export const deleteComplexData = async (
   req: Request<paramsModels>,
   res: Response<complexGetModelSuccess | errorResponseModel>
@@ -93,6 +96,7 @@ export const deleteComplexData = async (
   }
 };
 
+// Update a complex
 export const updateComplexData = async (
   req: Request<paramsModels, UpdateComplexModel>,
   res: Response<complexModelSuccess | errorResponseModel>

@@ -17,6 +17,7 @@ import {
 } from "../db/AccountQueries";
 import { createCustomer, getCustomer } from "../services/mercadoPago";
 
+// Get all accounts
 export const getAccounts = async (
   req: Request,
   res: Response<AccountModelSuccess | errorResponseModel>
@@ -30,6 +31,7 @@ export const getAccounts = async (
   }
 };
 
+// Get account by ID
 export const getAccountById = async (
   req: Request<paramsModels>,
   res: Response<AccountGetModelSuccess | errorResponseModel>
@@ -49,6 +51,7 @@ export const getAccountById = async (
   }
 };
 
+// Create a new account
 export const createAccount = async (
   req: Request<{}, {}, AccountModel>,
   res: Response<AccountGetModelSuccess | errorResponseModel>
@@ -96,6 +99,7 @@ export const createAccount = async (
   }
 };
 
+// Delete an account
 export const deleteAccount = async (
   req: Request<paramsModels>,
   res: Response<AccountModelSuccess | errorResponseModel>
@@ -117,6 +121,7 @@ export const deleteAccount = async (
   }
 };
 
+// Update an account
 export const updateAccount = async (
   req: Request<paramsModels, {}, UpdateAccountModel>,
   res: Response<AccountModelSuccess | errorResponseModel>

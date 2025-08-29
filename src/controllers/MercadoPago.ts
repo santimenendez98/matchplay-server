@@ -13,6 +13,7 @@ import {
 } from "../types/Payment";
 import { errorResponseModel } from "../types";
 
+// Add a new customer
 export const addCustomer = async (
   req: Request<{}, {}, CreateCustomer>,
   res: Response<CreateCustomerResponse | errorResponseModel>
@@ -39,6 +40,7 @@ export const addCustomer = async (
   }
 };
 
+// Save a payment method for a customer
 export const savePaymentMethod = async (req: Request, res: Response) => {
   const { token, customerId } = req.body;
 
@@ -52,6 +54,7 @@ export const savePaymentMethod = async (req: Request, res: Response) => {
   }
 };
 
+// Process a payment
 export const processPayment = async (req: Request, res: Response) => {
   const {
     customerId,
@@ -79,6 +82,7 @@ export const processPayment = async (req: Request, res: Response) => {
   }
 };
 
+// Generate a token for payment
 export const generateToken = async (
   req: Request<{}, {}, GenerateTokenModel>,
   res: Response<TokenSuccessResponse | errorResponseModel>

@@ -12,7 +12,6 @@ import {
   deleteMatchQuery,
   getMatchByIdQuery,
   joinMatchQuery,
-  getCantPlayersByMatchQuery,
   updatePlayersCountQuery,
   updateStatusMatchQuery,
   getMatchesQuery,
@@ -20,16 +19,22 @@ import {
   sendMessageToMatchQuery,
   getMessagesByMatchQuery,
   getPlayerJoinedByMatchQuery,
-  getAllPlayersByMatchQuery,
 } from "../db/MatchQueries";
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
   deleteReservationQuery,
+  getReservationWithIdQuery,
+  updatePreReserveStatusQuery,
   updateReservationStatusQuery,
 } from "../db/ReservationQueries";
-import { getCurrentTime } from "../services/addMinutes";
+import {
+  addOrRemoveMinutresToTime,
+  getCurrentTime,
+  getDateOnly,
+} from "../services/addMinutes";
 import { emitMessageToMatch } from "../services/webSocket";
 
+// Get all matches
 export const getMatches = async (
   req: Request,
   res: Response<MatchModelSuccess | errorResponseModel>
@@ -45,6 +50,7 @@ export const getMatches = async (
   }
 };
 
+// Delete a match
 export const deleteMatch = async (
   req: Request<paramsModels>,
   res: Response<MatchGetModelSuccess | errorResponseModel>
@@ -68,6 +74,7 @@ export const deleteMatch = async (
   }
 };
 
+// Player joins a match
 export const joinMatch = async (
   req: Request<{}, {}, JoinMatchModel>,
   res: Response<JoinMatchModelSuccess | errorResponseModel>
@@ -78,7 +85,6 @@ export const joinMatch = async (
 
     const match = await getMatchByIdQuery(match_id);
     const player = await getAccountByIdQuery(player_id);
-    const cantPlayers = await getCantPlayersByMatchQuery(match_id);
     const findPlayer = await getPlayerJoinedByMatchQuery(match_id, player_id);
 
     if (match.rowCount === 0) {
@@ -93,12 +99,6 @@ export const joinMatch = async (
         .json({ message: "An error ocurred", error: "Player not found" });
     }
 
-    if (cantPlayers.rowCount === 0) {
-      return res
-        .status(404)
-        .json({ message: "An error ocurred", error: "Match not found" });
-    }
-
     // Check if the player is already joined to the match
     if (findPlayer.rowCount! > 0) {
       return res.status(400).json({
@@ -108,45 +108,45 @@ export const joinMatch = async (
     }
 
     // Check if the match is already full
-    if (match.rows[0].status === "completed") {
+    if (match.rows[0].status !== "pending") {
       return res.status(400).json({
         message: "An error ocurred",
-        error: "Cannot join match, maximum players reached",
-      });
-    } else {
-      // Increment the current players count in the match
-      const updatePlayer = await updatePlayersCountQuery("1", match_id);
-
-      // If the match is full, update its status to completed
-      if (
-        updatePlayer.rows[0].current_players === cantPlayers.rows[0].max_players
-      ) {
-        await updateStatusMatchQuery(match_id, "completed");
-        await updateReservationStatusQuery(
-          match.rows[0].reservation_id,
-          "confirmed"
-        );
-      }
-
-      const joinData = await joinMatchQuery(match_id, player_id, joined_at);
-      const slots = await getAllPlayersByMatchQuery(match_id);
-
-      res.status(200).json({
-        message: "Player joined match successfully",
-        data: {
-          ...joinData.rows[0],
-          slots: `${
-            Number(cantPlayers.rows[0].max_players) - slots.rows.length
-          }/${cantPlayers.rows[0].max_players}`,
-        },
+        error: `Cannot join match, the match is ${match.rows[0].status}`,
       });
     }
+
+    // Increment the current players count in the match
+    const updatePlayer = await updatePlayersCountQuery("1", match_id);
+
+    // If the match is full, update its status to completed
+    if (
+      updatePlayer.rows[0].current_players ===
+      updatePlayer.rows[0].total_players
+    ) {
+      await updateStatusMatchQuery(match_id, "completed");
+      await updateReservationStatusQuery(
+        match.rows[0].reservation_id,
+        "confirmed"
+      );
+      await updatePreReserveStatusQuery(
+        match.rows[0].reservation_id,
+        "confirmed"
+      );
+    }
+
+    const joinData = await joinMatchQuery(match_id, player_id, joined_at);
+
+    res.status(200).json({
+      message: "Player joined match successfully",
+      data: joinData.rows[0],
+    });
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ message: "An error occurred", error: err.message });
   }
 };
 
+// Player leaves a match
 export const leaveMatch = async (
   req: Request<{}, {}, JoinMatchModel>,
   res: Response<JoinMatchModelSuccess | errorResponseModel>
@@ -154,6 +154,7 @@ export const leaveMatch = async (
   try {
     const { match_id, player_id } = req.body;
     const match = await getMatchByIdQuery(match_id);
+    const today = getCurrentTime();
 
     if (match.rowCount === 0) {
       return res
@@ -168,10 +169,38 @@ export const leaveMatch = async (
       });
     }
 
-    if (match.rows[0].status === "completed") {
+    if (match.rows[0].status !== "pending") {
       return res.status(400).json({
         message: "An error ocurred",
-        error: "Cannot leave match, it is already completed",
+        error: `Cannot leave match, the match is ${match.rows[0].status}`,
+      });
+    }
+
+    const reservation = await getReservationWithIdQuery(
+      match.rows[0].reservation_id
+    );
+
+    if (reservation.rowCount === 0) {
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "Reservation not found",
+      });
+    }
+
+    const convertedReservationDate = getDateOnly(
+      reservation.rows[0].reservation_date
+    );
+    const convertedToday = getDateOnly(today);
+
+    if (
+      reservation.rows[0].start_time >
+        addOrRemoveMinutresToTime(today, "-", 60) &&
+      convertedReservationDate === convertedToday
+    ) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error:
+          "Cannot leave match within 1 hour of the reservation time, you must request for leave",
       });
     }
 
@@ -194,6 +223,7 @@ export const leaveMatch = async (
   }
 };
 
+// Player sends a message to the match chat
 export const sendMessageToMatch = async (
   req: Request<{}, {}, SendMessageModel>,
   res: Response<sendMatchMessageModelSuccess | errorResponseModel>
@@ -236,6 +266,7 @@ export const sendMessageToMatch = async (
   }
 };
 
+// Get chat history of a match
 export const historyChatMatch = async (
   req: Request<paramsModels>,
   res: Response<sendMatchMessageModelSuccess | errorResponseModel>

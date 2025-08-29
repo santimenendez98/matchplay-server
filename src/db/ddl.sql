@@ -117,7 +117,9 @@ CREATE TABLE Match (
   creator_id INTEGER NOT NULL REFERENCES Account(id),
   court_id INTEGER NOT NULL REFERENCES Court(id),
   reservation_id INTEGER NOT NULL REFERENCES Reservation(id),
+  price_per_player DECIMAL(10, 2) NOT NULL,
   current_players INTEGER NOT NULL DEFAULT 0,
+  total_players INTEGER NOT NULL,
   status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'completed', 'cancelled'))
 );
 
@@ -145,6 +147,7 @@ CREATE TABLE MatchPlayer (
   match_id INTEGER NOT NULL REFERENCES Match(id),
   player_id INTEGER NOT NULL REFERENCES Account(id),
   joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('debit card', 'cash', 'bank_transfer')) DEFAULT 'cash',
   PRIMARY KEY (match_id, player_id)
 );
 

@@ -13,6 +13,7 @@ import {
   deleteWeekPriceQuery,
 } from "../db/ScheduleWeekPriceQueries";
 
+// Get all daily court prices
 export const getScheduleWeekPrice = async (
   req: Request,
   res: Response<errorResponseModel | WeekPriceModelSuccess>
@@ -29,6 +30,7 @@ export const getScheduleWeekPrice = async (
   }
 };
 
+// Create a new daily court price
 export const createScheduleWeekPrice = async (
   req: Request<{}, {}, WeekPriceModel>,
   res: Response<errorResponseModel | WeekPriceGetModelSuccess>
@@ -58,6 +60,7 @@ export const createScheduleWeekPrice = async (
   }
 };
 
+// Update an existing daily court price
 export const updateScheduleWeekPrice = async (
   req: Request<paramsModels, updateWeekPriceModel>,
   res: Response<WeekPriceModelSuccess | errorResponseModel>
@@ -99,6 +102,7 @@ export const updateScheduleWeekPrice = async (
   }
 };
 
+// Delete a daily court price
 export const deleteScheduleWeekPrice = async (
   req: Request<paramsModels>,
   res: Response<errorResponseModel | WeekPriceModelSuccess>

@@ -16,6 +16,7 @@ import {
   getOverlappingSchedules,
 } from "../db/ScheduleCourtQueries";
 
+// Get all daily court schedules
 export const getScheduleDay = async (
   req: Request,
   res: Response<scheduleDayModelSuccess | errorResponseModel>
@@ -29,6 +30,7 @@ export const getScheduleDay = async (
   }
 };
 
+// Create a new daily court schedule
 export const createScheduleDay = async (
   req: Request<{}, {}, createScheduleDayModel>,
   res: Response<schedulePostDayModelSuccess | errorResponseModel>
@@ -50,6 +52,7 @@ export const createScheduleDay = async (
   }
 };
 
+// Update an existing daily court schedule
 export const updateScheduleDay = async (
   req: Request<
     paramsModels,
@@ -116,6 +119,7 @@ export const updateScheduleDay = async (
   }
 };
 
+// Delete a daily court schedule
 export const deleteScheduleDay = async (
   req: Request<paramsModels>,
   res: Response<scheduleDeleteModelSuccess | errorResponseModel>

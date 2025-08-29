@@ -5,7 +5,6 @@ import {
   getToken,
   handleMatchPayment,
   processDebitPayment,
-  validateReservation,
 } from "../services/mercadoPago";
 import {
   getReservationWithIdQuery,
@@ -16,6 +15,20 @@ import {
   PaymentReservationResponse,
 } from "../types/Payment";
 import { errorResponseModel } from "../types";
+import { updatePaymentMethod } from "../db/MatchQueries";
+
+//Validate Reservation and status
+export const validateReservation = (reservation: any) => {
+  if (reservation.rows.length === 0) {
+    throw new Error("RESERVATION_NOT_FOUND");
+  }
+
+  if (reservation.rows[0].status !== "confirmed") {
+    throw new Error(
+      `RESERVATION_STATUS_${reservation.rows[0].status.toUpperCase()}`
+    );
+  }
+};
 
 // Controller to handle payment for a reservation with card details
 export const paymentReservationWithCard = async (
@@ -37,6 +50,16 @@ export const paymentReservationWithCard = async (
     }
 
     const customer_id = account.rows[0].id_customer;
+    console.log(customer_id);
+    const match_id = reservation.rows[0].id;
+
+    if (!match_id) {
+      return res.status(400).json({
+        message: "Reservation is not a match reservation",
+        error: "RESERVATION_NOT_A_MATCH",
+      });
+    }
+
     if (!customer_id) {
       return res.status(404).json({
         message: "Customer not found in MercadoPago",
@@ -71,6 +94,9 @@ export const paymentReservationWithCard = async (
         today,
         paid_by
       );
+
+      // Update payment method in MatchPlayer
+      await updatePaymentMethod(match_id, account_id);
     } else {
       // Process payment for regular reservation
       paymentResponse = await processDebitPayment(
@@ -105,6 +131,10 @@ export const paymentReservationWithCard = async (
       RESERVATION_STATUS_CONFIRMED: {
         status: 400,
         message: "Reservation already confirmed",
+      },
+      RESERVATION_STATUS_PENDING: {
+        status: 400,
+        message: "Reservation still pending",
       },
       RESERVATION_STATUS_CANCELLED: {
         status: 400,

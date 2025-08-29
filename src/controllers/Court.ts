@@ -14,6 +14,7 @@ import {
   updateCourtQuery,
 } from "../db/CourtQueries";
 
+// Get all courts
 export const getCourts = async (
   req: Request,
   res: Response<CourtModelSuccess | errorResponseModel>
@@ -27,6 +28,7 @@ export const getCourts = async (
   }
 };
 
+// Create a new court
 export const createCourt = async (
   req: Request<{}, {}, CourtModel>,
   res: Response<CourtGetModelSuccess | errorResponseModel>
@@ -48,6 +50,7 @@ export const createCourt = async (
   }
 };
 
+// Delete a court
 export const deleteCourt = async (
   req: Request<paramsModels>,
   res: Response<CourtGetModelSuccess | errorResponseModel>
@@ -70,6 +73,7 @@ export const deleteCourt = async (
   }
 };
 
+// Update a court
 export const updateAccount = async (
   req: Request<paramsModels, {}, updateCourtModel>,
   res: Response<CourtModelSuccess | errorResponseModel>

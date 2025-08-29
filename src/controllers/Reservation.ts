@@ -1,6 +1,6 @@
 import { Response, Request } from "express";
 import {
-  addMinutesToTime,
+  addOrRemoveMinutresToTime,
   getCurrentTime,
   getNext1Hour,
   isWithin24Hours,
@@ -31,6 +31,7 @@ import { MatchModel, MatchGetModelSuccess } from "../types/Match";
 import {
   createMatchQuery,
   deleteMatchPlayerQuery,
+  getCantPlayersByScheduleQuery,
   getMatchByReservationQuery,
   joinMatchQuery,
   updateStatusMatchQuery,
@@ -54,6 +55,8 @@ import {
   emitNotificationCourt,
 } from "../services/webSocket";
 import { getAccountByIdQuery } from "../db/AccountQueries";
+
+// Get all reservations
 export const getReservations = async (
   req: Request,
   res: Response<ReservationModelSuccess | errorResponseModel>
@@ -69,6 +72,7 @@ export const getReservations = async (
   }
 };
 
+// Create a new reservation
 export const createReservation = async (
   req: Request<{}, {}, ReservationModel>,
   res: Response<
@@ -98,7 +102,7 @@ export const createReservation = async (
 
     const time = time_reserved === 1 ? 60 : 90;
     const start_time = scheduleRes.rows[0].start_time;
-    const end_time = addMinutesToTime(start_time, time);
+    const end_time = addOrRemoveMinutresToTime(start_time, "+", time);
 
     //Verify if the hour is available
     const scheduleReserve = await verifyHourAvailabilityQuery(
@@ -148,14 +152,25 @@ export const createReservation = async (
     );
 
     if (is_match && result.rows[0].id) {
+      const cantPlayers = await getCantPlayersByScheduleQuery(schedule_id);
+      const price = totalPrice / cantPlayers.rows[0].max_players;
       const match: MatchModel = {
         court_id: scheduleRes.rows[0].court_id,
         creator_id: account_id,
         reservation_id: result.rows[0].id,
+        total_players: cantPlayers.rows[0].max_players,
+        price_per_player: price,
       };
 
       const matchReserve = await createMatchQuery(match);
       const time = getNext1Hour();
+
+      if (!matchReserve.rows[0].id) {
+        return res.status(500).json({
+          message: "An error ocurred",
+          error: "Could not create match for the reservation",
+        });
+      }
 
       // Create pre-reservation if match is created
       await createPreReserveQuery({
@@ -189,6 +204,7 @@ export const createReservation = async (
   }
 };
 
+// Cancel a reservation
 export const cancelReservation = async (
   req: Request<{}, {}, BodyCancelModel>,
   res: Response<{ message: string } | errorResponseModel>
@@ -283,6 +299,7 @@ export const cancelReservation = async (
   }
 };
 
+// Cancel a pre-reservation (match)
 export const cancelPreReservation = async (
   req: Request<{}, {}, BodyCancelPreReserveModel>,
   res: Response<errorResponseModel | CancelReservationModelSuccess>
@@ -341,7 +358,6 @@ export const cancelPreReservation = async (
         cancelation_date: today,
       };
 
-      await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
       const resRequest = await cancelReservationQuery(cancelation);
 
       // Update the schedule availability and status
@@ -374,6 +390,7 @@ export const cancelPreReservation = async (
   }
 };
 
+// Create cancellation request for a reservation
 export const cancelReservationRequest = async (
   req: Request<{}, {}, CancelReservationModel>,
   res: Response<errorResponseModel | CancelReservationModelSuccess>

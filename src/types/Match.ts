@@ -3,7 +3,9 @@ export interface MatchModel {
   creator_id: string;
   court_id: string;
   reservation_id: string;
+  price_per_player: number;
   current_players?: number;
+  total_players: number;
   status?: "pending" | "completed" | "cancelled";
 }
 

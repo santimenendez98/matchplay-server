@@ -11,9 +11,17 @@ export const getMatchesQuery = async () => {
 
 export const createMatchQuery = async (match: MatchModel) => {
   return pool.query<MatchModel>(
-    `INSERT INTO Match (court_id, creator_id, reservation_id, status, current_players) 
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [match.court_id, match.creator_id, match.reservation_id, "pending", 1]
+    `INSERT INTO Match (court_id, creator_id, reservation_id, status, current_players, total_players, price_per_player) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [
+      match.court_id,
+      match.creator_id,
+      match.reservation_id,
+      "pending",
+      1,
+      match.total_players,
+      match.price_per_player,
+    ]
   );
 };
 
@@ -53,14 +61,13 @@ export const updateStatusMatchQuery = async (
   );
 };
 
-export const getCantPlayersByMatchQuery = async (match_id: string) => {
+export const getCantPlayersByScheduleQuery = async (schedule_id: string) => {
   return pool.query(
-    `SELECT s.max_players
-     FROM Match m 
-     JOIN Court c ON m.court_id = c.id
-     JOIN Sport s ON c.sport_id = s.id
-     WHERE m.id = $1`,
-    [match_id]
+    `SELECT max_players FROM Sport s
+    JOIN Court c ON s.id = c.sport_id
+    JOIN ScheduleCourt sch ON c.id = sch.court_id
+    WHERE sch.id = $1`,
+    [schedule_id]
   );
 };
 
@@ -125,6 +132,16 @@ export const getAllPlayersByMatchQuery = async (match_id: string) => {
     FROM MatchPlayer
     WHERE match_id = $1`,
     [match_id]
+  );
+};
+
+export const updatePaymentMethod = async (
+  match_id: string,
+  player_id: string
+) => {
+  return pool.query(
+    `UPDATE MatchPlayer SET payment_method = 'debit card' WHERE match_id = $1 AND player_id = $2`,
+    [match_id, player_id]
   );
 };
 

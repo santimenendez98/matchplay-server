@@ -9,7 +9,7 @@ import {
   SavePaymentModel,
 } from "../types/Payment";
 import {
-  getCantPlayersByMatchQuery,
+  getCantPlayersByScheduleQuery,
   getMatchByReservationQuery,
 } from "../db/MatchQueries";
 import {
@@ -222,19 +222,6 @@ export const processDebitPayment = async (
   return paymentResponse;
 };
 
-// Validate reservation existence and status
-export const validateReservation = (reservation: any) => {
-  if (reservation.rows.length === 0) {
-    throw new Error("RESERVATION_NOT_FOUND");
-  }
-
-  if (reservation.rows[0].status !== "pending") {
-    throw new Error(
-      `RESERVATION_STATUS_${reservation.rows[0].status.toUpperCase()}`
-    );
-  }
-};
-
 // Handle payment flow when reservation is a match.
 export const handleMatchPayment = async (
   reservation: any,
@@ -263,19 +250,14 @@ export const handleMatchPayment = async (
     throw new Error("USER_ALREADY_PAID");
   }
 
-  // Calculate amount to pay
-  const matchId = match.rows[0].id;
-  if (!matchId) {
-    throw new Error("MATCH_ID_UNDEFINED");
-  }
-  const amountPlayers = await getCantPlayersByMatchQuery(matchId);
-  const price = reservation.rows[0].price / amountPlayers.rows[0].max_players;
+  // Amount to be paid is the price per player
+  const matchPrice = Number(match.rows[0].price_per_player);
 
   // Process payment
   const paymentResponse = await processDebitPayment(
     customer_id,
     token,
-    price,
+    matchPrice,
     reservation_id,
     today,
     account_id,
