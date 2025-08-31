@@ -3,6 +3,7 @@ import {
   savePaymentMethod,
   addCustomer,
   generateToken,
+  generateProof,
 } from "../controllers/MercadoPago";
 import { body } from "express-validator";
 
@@ -74,6 +75,17 @@ mercadoPagoRouter.post(
     .isString()
     .withMessage("Cardholder identification number must be a string"),
   generateToken
+);
+
+// Generate proof of payment (PDF)
+mercadoPagoRouter.post(
+  "/generate-proof",
+  body("payment_id")
+    .notEmpty()
+    .withMessage("Payment ID is required")
+    .isString()
+    .withMessage("Payment ID must be a string"),
+  generateProof
 );
 
 export default mercadoPagoRouter;

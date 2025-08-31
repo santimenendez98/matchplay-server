@@ -15,7 +15,10 @@ import {
   PaymentReservationResponse,
 } from "../types/Payment";
 import { errorResponseModel } from "../types";
-import { updatePaymentMethod } from "../db/MatchQueries";
+import {
+  getMatchByReservationQuery,
+  updatePaymentMethod,
+} from "../db/MatchQueries";
 
 //Validate Reservation and status
 export const validateReservation = (reservation: any) => {
@@ -23,7 +26,19 @@ export const validateReservation = (reservation: any) => {
     throw new Error("RESERVATION_NOT_FOUND");
   }
 
-  if (reservation.rows[0].status !== "confirmed") {
+  if (
+    reservation.rows[0].is_match &&
+    reservation.rows[0].status !== "confirmed"
+  ) {
+    throw new Error(
+      `RESERVATION_STATUS_${reservation.rows[0].status.toUpperCase()}`
+    );
+  }
+
+  if (
+    !reservation.rows[0].is_match &&
+    reservation.rows[0].status !== "pending"
+  ) {
     throw new Error(
       `RESERVATION_STATUS_${reservation.rows[0].status.toUpperCase()}`
     );
@@ -49,16 +64,14 @@ export const paymentReservationWithCard = async (
       });
     }
 
-    const customer_id = account.rows[0].id_customer;
-    console.log(customer_id);
-    const match_id = reservation.rows[0].id;
-
-    if (!match_id) {
-      return res.status(400).json({
-        message: "Reservation is not a match reservation",
-        error: "RESERVATION_NOT_A_MATCH",
+    if (reservation.rows.length === 0) {
+      return res.status(404).json({
+        message: "Reservation not found",
+        error: "RESERVATION_NOT_FOUND",
       });
     }
+
+    const customer_id = account.rows[0].id_customer;
 
     if (!customer_id) {
       return res.status(404).json({
@@ -85,8 +98,25 @@ export const paymentReservationWithCard = async (
     let paymentResponse;
 
     if (reservation.rows[0].is_match) {
+      const match = await getMatchByReservationQuery(reservation_id);
+
+      if (match.rows.length === 0) {
+        return res.status(404).json({
+          message: "Match not found for this reservation",
+          error: "MATCH_NOT_FOUND",
+        });
+      }
+
+      const match_id = match.rows[0].id;
+
+      if (!match_id) {
+        return res.status(400).json({
+          message: "Reservation is not a match reservation",
+          error: "RESERVATION_NOT_A_MATCH",
+        });
+      }
+
       paymentResponse = await handleMatchPayment(
-        reservation,
         reservation_id,
         account_id,
         customer_id,
@@ -104,6 +134,9 @@ export const paymentReservationWithCard = async (
         token,
         reservation.rows[0].price,
         reservation_id,
+        reservation.rows[0].reservation_date,
+        reservation.rows[0].start_time,
+        reservation.rows[0].end_time,
         today,
         account_id
       );

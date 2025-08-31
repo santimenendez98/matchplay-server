@@ -4,6 +4,8 @@ import {
   savePayment,
   createPayment,
   getToken,
+  getPayment,
+  generateProofPayment,
 } from "../services/mercadoPago";
 import {
   CreateCustomer,
@@ -94,6 +96,54 @@ export const generateToken = async (
       message: "Token generated successfully",
       data: token,
     });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error ocurred", error: err.message });
+  }
+};
+
+// Generate proof of payment (PDF)
+export const generateProof = async (req: Request, res: Response) => {
+  try {
+    const { payment_id } = req.body;
+
+    const searchPayment = await getPayment(payment_id);
+
+    if (!searchPayment) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Payment not found" });
+    }
+
+    console.log("Payment found:", searchPayment);
+
+    const pdf = await generateProofPayment(
+      searchPayment.id,
+      searchPayment.status,
+      new Date(searchPayment.date_approved).toLocaleDateString(),
+      searchPayment.transaction_amount,
+      searchPayment.description,
+      searchPayment.card?.cardholder?.name || "N/A",
+      searchPayment.payer.email,
+      searchPayment.payment_method.id,
+      searchPayment.card?.last_four_digits || "N/A",
+      searchPayment.authorization_code || "N/A"
+    );
+
+    if (!pdf) {
+      return res
+        .status(500)
+        .json({ message: "An error ocurred", error: "Failed to generate PDF" });
+    }
+
+    res
+      .status(200)
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename=proof_of_payment_${payment_id}.pdf`,
+        "Content-Length": pdf.length,
+      })
+      .send(pdf);
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ message: "An error ocurred", error: err.message });

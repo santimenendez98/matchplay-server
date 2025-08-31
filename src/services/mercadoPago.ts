@@ -8,14 +8,14 @@ import {
   responsePayment,
   SavePaymentModel,
 } from "../types/Payment";
+import { getMatchByReservationQuery } from "../db/MatchQueries";
 import {
-  getCantPlayersByScheduleQuery,
-  getMatchByReservationQuery,
-} from "../db/MatchQueries";
-import {
+  getReservationWithIdQuery,
   savePaymentHistoryQuery,
   verifyUserPaidReservationQuery,
 } from "../db/ReservationQueries";
+import puppeteer from "puppeteer";
+import { getDateOnly } from "./addMinutes";
 
 // Initialize MercadoPago with your access token
 const mercadopago = new MercadoPagoConfig({
@@ -185,15 +185,20 @@ export const processDebitPayment = async (
   token: { id: string },
   amount: number,
   reservation_id: string,
+  reservation_date: string,
+  start_time: string,
+  end_time: string,
   today: string,
   account_id: string,
   paid_by?: string
 ) => {
+  const convertedReservationDate = getDateOnly(reservation_date);
+  const price = Number(amount);
   const data = {
     id: customer_id,
     token: token.id,
-    amount,
-    description: `Reservation id ${reservation_id} for ${today}`,
+    amount: price,
+    description: `Reservation N° ${reservation_id} for ${convertedReservationDate} from ${start_time} to ${end_time}`,
   };
 
   const paymentResponse = await createPayment(data);
@@ -209,7 +214,7 @@ export const processDebitPayment = async (
   const dataPayment: DebitPaymentHistory = {
     user_id: account_id,
     reservation_id,
-    amount,
+    amount: price,
     payment_status: "completed",
     payment_method: "debit card",
     payment_date: today,
@@ -224,7 +229,6 @@ export const processDebitPayment = async (
 
 // Handle payment flow when reservation is a match.
 export const handleMatchPayment = async (
-  reservation: any,
   reservation_id: string,
   account_id: string,
   customer_id: string,
@@ -233,6 +237,16 @@ export const handleMatchPayment = async (
   paid_by?: string
 ) => {
   const match = await getMatchByReservationQuery(reservation_id);
+  const reservation = await getReservationWithIdQuery(reservation_id);
+
+  if (reservation.rows.length === 0) {
+    throw new Error("RESERVATION_NOT_FOUND");
+  }
+
+  if (!reservation.rows[0].is_match) {
+    throw new Error("RESERVATION_NOT_A_MATCH");
+  }
+
   if (match.rows.length === 0) {
     throw new Error("MATCH_NOT_FOUND");
   }
@@ -251,7 +265,7 @@ export const handleMatchPayment = async (
   }
 
   // Amount to be paid is the price per player
-  const matchPrice = Number(match.rows[0].price_per_player);
+  const matchPrice = match.rows[0].price_per_player;
 
   // Process payment
   const paymentResponse = await processDebitPayment(
@@ -259,10 +273,167 @@ export const handleMatchPayment = async (
     token,
     matchPrice,
     reservation_id,
+    reservation.rows[0].reservation_date,
+    reservation.rows[0].start_time,
+    reservation.rows[0].end_time,
     today,
     account_id,
     paid_by
   );
 
   return paymentResponse;
+};
+
+//  Get Payment
+export const getPayment = async (payment_id: string) => {
+  try {
+    const payment = await fetch(
+      `https://api.mercadopago.com/v1/payments/${payment_id}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}`,
+        },
+      }
+    );
+
+    if (!payment.ok) {
+      throw new Error("Payment not found");
+    }
+
+    const paymentResponse = await payment.json();
+    return paymentResponse;
+  } catch (error) {
+    console.error("Error getting payment:", error);
+    throw error;
+  }
+};
+
+// Generate proof of payment (HTML to PDF)
+export const generateProofPayment = async (
+  mp_payment_id: string,
+  status: string,
+  date: string,
+  amount: number,
+  description: string,
+  cardholder_name: string,
+  email: string,
+  payment_method: string,
+  last_four_digits: string,
+  autorization_code: string
+) => {
+  try {
+    const proofHTML = `
+     <!DOCTYPE html>
+  <html lang="es">
+  <head>
+      <meta charset="UTF-8">
+      <title>Proof of Payment - Lets Play</title>
+      <style>
+          body {
+              font-family: Arial, sans-serif;
+              margin: 40px;
+              background-color: #f9f9f9;
+              color: #333;
+          }
+          .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #4CAF50;
+              padding-bottom: 10px;
+              margin-bottom: 20px;
+          }
+          .logo {
+              font-size: 24px;
+              font-weight: bold;
+              color: #4CAF50;
+          }
+          .title {
+              font-size: 20px;
+              font-weight: bold;
+          }
+          table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+          }
+          th, td {
+              border: 1px solid #ddd;
+              padding: 10px;
+          }
+          th {
+              background-color: #4CAF50;
+              color: white;
+              text-align: left;
+          }
+          .qr {
+              text-align: center;
+              margin-top: 50px;
+          }
+          .footer {
+              text-align: center;
+              font-size: 12px;
+              margin-top: 30px;
+              color: #777;
+          }
+      </style>
+  </head>
+  <body>
+      <div class="header">
+          <div class="logo">Lets Play</div>
+          <div class="title">Proof of Payment</div>
+      </div>
+
+      <table>
+          <tr><th>Payment ID</th><td>${mp_payment_id}</td></tr>
+          <tr><th>Status</th><td>${status}</td></tr>
+          <tr><th>Approval Date</th><td>${date}</td></tr>
+          <tr><th>Amount</th><td>${amount} UYU</td></tr>
+          <tr><th>Description</th><td>${description}</td></tr>
+          <tr><th>Cardholder Name</th><td>${cardholder_name}</td></tr>
+          <tr><th>Email</th><td>${email}</td></tr>
+          <tr><th>Payment Method</th><td>Debit ${payment_method
+            .slice(3)
+            .toUpperCase()}</td></tr>
+          <tr><th>Card Number</th><td>**** ${last_four_digits}</td></tr>
+          <tr><th>Authorization Code</th><td>${autorization_code}</td></tr>
+      </table>
+
+      <div class="qr">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?data=${mp_payment_id}&size=120x120" alt="QR Code" width="120">
+      </div>
+
+      <div class="footer">
+          This proof is valid as a payment receipt at <b>Lets Play</b>. Thank you for trusting us.
+      </div>
+  </body>
+</html>
+`;
+
+    const pdf = await generatePDF(proofHTML);
+    return pdf;
+  } catch (error) {
+    console.error("Error generating proof of payment:", error);
+    throw error;
+  }
+};
+
+// Generate PDF from HTML using Puppeteer
+export const generatePDF = async (html: string) => {
+  try {
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      headless: true,
+      timeout: 60000,
+    });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+    await browser.close();
+    return pdfBuffer;
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    throw error;
+  }
 };
