@@ -1,14 +1,17 @@
 import { addMinutes } from "date-fns";
 import { toZonedTime, format } from "date-fns-tz";
 
-export const addMinutesToTime = (
+export const addOrRemoveMinutresToTime = (
   time: string,
+  operation: "+" | "-",
   minutesToAdd: number
 ): string => {
   const [hours, minutes] = time.split(":").map(Number);
   const date = new Date();
   date.setHours(hours, minutes);
-  date.setMinutes(date.getMinutes() + minutesToAdd);
+  date.setMinutes(
+    date.getMinutes() + (operation === "+" ? minutesToAdd : -minutesToAdd)
+  );
 
   const hh = String(date.getHours()).padStart(2, "0");
   const mm = String(date.getMinutes()).padStart(2, "0");
@@ -42,8 +45,14 @@ export function isWithin24Hours(reservationDate: string): boolean {
   return diffHours <= 24;
 }
 
+export function getOnlyDate(date: string) {
+  const newDate = new Date(date);
+  const formatDate = format(newDate, "yyyy-MM-dd");
+  return formatDate;
+}
+
 export default {
-  addMinutesToTime,
+  addOrRemoveMinutresToTime,
   timeToMinutes,
   getNext1Hour,
   getCurrentTime,

@@ -2,7 +2,7 @@ import { Response, Request } from "express";
 import generateScheduleForDay from "../services/scheduleService";
 import { addDays } from "date-fns";
 import {
-  addMinutesToTime,
+  addOrRemoveMinutresToTime,
   getCurrentTime,
   timeToMinutes,
 } from "../services/addMinutes";
@@ -201,7 +201,7 @@ export const generateScheduleCourtWeek = async (
     let currentTime = start_time;
 
     while (timeToMinutes(currentTime) + 30 <= timeToMinutes(end_time)) {
-      const nextTime = addMinutesToTime(currentTime, 30);
+      const nextTime = addOrRemoveMinutresToTime(currentTime, "+", 30);
 
       const overlap = await existingOneOverlappingQuery(
         court_id,

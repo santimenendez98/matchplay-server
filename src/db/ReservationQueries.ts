@@ -21,7 +21,7 @@ export const createReservationQuery = (reservation: ReservationModel) =>
       reservation.time_reserved,
       reservation.reservation_date,
       reservation.is_match,
-      reservation.status[0],
+      reservation.status,
     ]
   );
 

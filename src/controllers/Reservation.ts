@@ -1,6 +1,6 @@
 import { Response, Request } from "express";
 import {
-  addMinutesToTime,
+  addOrRemoveMinutresToTime,
   getCurrentTime,
   getNext1Hour,
   isWithin24Hours,
@@ -31,6 +31,7 @@ import { MatchModel, MatchGetModelSuccess } from "../types/Match";
 import {
   createMatchQuery,
   deleteMatchPlayerQuery,
+  getCantPlayersByScheduleQuery,
   getMatchByReservationQuery,
   joinMatchQuery,
   updateStatusMatchQuery,
@@ -53,8 +54,9 @@ import {
   emitNotificationCancelRequest,
   emitNotificationCourt,
 } from "../services/webSocket";
-import { createPayment } from "../services/mercadoPago";
+import { getAccountByIdQuery } from "../db/AccountQueries";
 
+// Get all reservations
 export const getReservations = async (
   req: Request,
   res: Response<ReservationModelSuccess | errorResponseModel>
@@ -70,6 +72,7 @@ export const getReservations = async (
   }
 };
 
+// Create a new reservation
 export const createReservation = async (
   req: Request<{}, {}, ReservationModel>,
   res: Response<
@@ -83,6 +86,13 @@ export const createReservation = async (
     // Get the schedule details
     const scheduleRes = await getScheduleById(schedule_id);
     const reservation = await checkReservationExistsQuery(account_id, today);
+    const account = await getAccountByIdQuery(account_id);
+
+    if (account.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Account not found" });
+    }
 
     if (scheduleRes.rows.length === 0) {
       return res
@@ -92,7 +102,7 @@ export const createReservation = async (
 
     const time = time_reserved === 1 ? 60 : 90;
     const start_time = scheduleRes.rows[0].start_time;
-    const end_time = addMinutesToTime(start_time, time);
+    const end_time = addOrRemoveMinutresToTime(start_time, "+", time);
 
     //Verify if the hour is available
     const scheduleReserve = await verifyHourAvailabilityQuery(
@@ -131,9 +141,9 @@ export const createReservation = async (
       start_time,
       end_time,
       time_reserved,
-      reservation_date: today,
+      reservation_date: scheduleRes.rows[0].schedule_date,
       is_match,
-      status: ["pending"],
+      status: "pending",
     });
 
     // Update the availability of the schedule
@@ -142,14 +152,25 @@ export const createReservation = async (
     );
 
     if (is_match && result.rows[0].id) {
+      const cantPlayers = await getCantPlayersByScheduleQuery(schedule_id);
+      const price = totalPrice / cantPlayers.rows[0].max_players;
       const match: MatchModel = {
         court_id: scheduleRes.rows[0].court_id,
         creator_id: account_id,
         reservation_id: result.rows[0].id,
+        total_players: cantPlayers.rows[0].max_players,
+        price_per_player: price,
       };
 
       const matchReserve = await createMatchQuery(match);
       const time = getNext1Hour();
+
+      if (!matchReserve.rows[0].id) {
+        return res.status(500).json({
+          message: "An error ocurred",
+          error: "Could not create match for the reservation",
+        });
+      }
 
       // Create pre-reservation if match is created
       await createPreReserveQuery({
@@ -170,26 +191,9 @@ export const createReservation = async (
       });
     }
 
-    // Create the payment
-
-    const paymentData = {
-      items: [
-        {
-          id: scheduleRes.rows[0].id ? scheduleRes.rows[0].id : "0",
-          title: `Reservation for ${start_time} on ${scheduleRes.rows[0].schedule_date}`,
-          quantity: 1,
-          unit_price: Number(totalPrice),
-        },
-      ],
-      external_reference: result.rows[0].id ? result.rows[0].id : "0",
-    };
-
-    const paymentResponse = await createPayment(paymentData);
-
     return res.status(201).json({
       message: "Reservation created successfully",
       data: result.rows[0],
-      payment_url: paymentResponse,
     });
   } catch (error) {
     const err = error as Error;
@@ -200,6 +204,7 @@ export const createReservation = async (
   }
 };
 
+// Cancel a reservation
 export const cancelReservation = async (
   req: Request<{}, {}, BodyCancelModel>,
   res: Response<{ message: string } | errorResponseModel>
@@ -294,6 +299,7 @@ export const cancelReservation = async (
   }
 };
 
+// Cancel a pre-reservation (match)
 export const cancelPreReservation = async (
   req: Request<{}, {}, BodyCancelPreReserveModel>,
   res: Response<errorResponseModel | CancelReservationModelSuccess>
@@ -352,7 +358,6 @@ export const cancelPreReservation = async (
         cancelation_date: today,
       };
 
-      await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
       const resRequest = await cancelReservationQuery(cancelation);
 
       // Update the schedule availability and status
@@ -385,6 +390,7 @@ export const cancelPreReservation = async (
   }
 };
 
+// Create cancellation request for a reservation
 export const cancelReservationRequest = async (
   req: Request<{}, {}, CancelReservationModel>,
   res: Response<errorResponseModel | CancelReservationModelSuccess>

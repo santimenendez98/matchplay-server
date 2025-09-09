@@ -1,30 +1,38 @@
-export interface MercadoPagoModel {
-  body: bodyModel;
+export interface paymentDataBody {
+  reservation_id: string;
+  token: string;
+  amount: number;
+  payment_method_id: string;
+  issuer_id: number;
+  email: string;
+  identification_type: string;
+  identification_number: string;
 }
 
-export interface bodyModel {
-  items: itemModel[];
-  back_urls: backUrlModel;
-  auto_return: string;
-  notification_url?: string;
-  external_reference: string;
+export interface historyPaymentModel {
+  id?: string;
+  account_id: string;
+  reservation_id: string;
+  total_amount: number;
+  payment_method: "debit_card" | "cash" | "bank_transfer";
+  payment_status: "pending" | "completed" | "failed";
+  payment_date: string;
+  paid_by: string;
+  mp_payment_id: string;
+  proof_of_payment?: string;
 }
 
-export interface itemModel {
-  id: string;
-  title: string;
-  quantity: number;
-  unit_price: number;
-  currency_id: string;
+export interface proofPaymentData {
+  mp_payment_id: number;
+  status: string;
+  date: string;
+  amount: number;
+  description: string;
+  cardholder_name: string;
+  email: string;
+  payment_method: string;
+  last_four_digits: string;
+  autorization_code: string;
 }
 
-export interface backUrlModel {
-  success: string;
-  failure: string;
-  pending: string;
-}
-
-export type mercadoPagoRequest = {
-  items: Omit<itemModel, "currency_id">[];
-  external_reference: string;
-};
+export type proofBodyModel = Pick<proofPaymentData, "mp_payment_id">;

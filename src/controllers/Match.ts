@@ -12,10 +12,10 @@ import {
   deleteMatchQuery,
   getMatchByIdQuery,
   joinMatchQuery,
-  getCantPlayersByMatchQuery,
+  getCantPlayersByScheduleQuery,
   updatePlayersCountQuery,
   updateStatusMatchQuery,
-  getPlayersJoinedByMatchQuery,
+  getPlayerJoinedByMatchQuery,
   getMatchesQuery,
   quitMatchQuery,
   sendMessageToMatchQuery,
@@ -78,8 +78,8 @@ export const joinMatch = async (
 
     const match = await getMatchByIdQuery(match_id);
     const player = await getAccountByIdQuery(player_id);
-    const cantPlayers = await getCantPlayersByMatchQuery(match_id);
-    const findPlayer = await getPlayersJoinedByMatchQuery(match_id, player_id);
+    const cantPlayers = await getCantPlayersByScheduleQuery(match_id);
+    const findPlayer = await getPlayerJoinedByMatchQuery(match_id, player_id);
 
     if (match.rowCount === 0) {
       return res
