@@ -18,7 +18,7 @@ export interface historyPaymentModel {
   payment_status: "pending" | "completed" | "failed";
   payment_date: string;
   paid_by: string;
-  mp_payment_id: string;
+  mp_payment_id?: string;
   proof_of_payment?: string;
 }
 
@@ -36,3 +36,24 @@ export interface proofPaymentData {
 }
 
 export type proofBodyModel = Pick<proofPaymentData, "mp_payment_id">;
+
+export interface PaymentTransferBody {
+  reservation_id: string;
+  account_id: string;
+  proof_url: string;
+}
+
+export interface confirmTransferBody {
+  payment_id: string;
+  status: "completed" | "failed";
+}
+
+export interface paymentResponse {
+  message: string;
+  data: historyPaymentModel;
+}
+
+export interface PaymentCashBody {
+  reservation_id: string;
+  account_id: string;
+}

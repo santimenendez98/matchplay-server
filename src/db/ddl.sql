@@ -127,7 +127,7 @@ CREATE TABLE PreRegistration (
   court_id INTEGER NOT NULL REFERENCES Court(id),
   match_id INTEGER NOT NULL REFERENCES Match(id),
   expiration_date TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 hour'),
-  registration_status VARCHAR(20) NOT NULL CHECK (registration_status IN ('pending', 'confirmed', 'cancelled'))
+  registration_status VARCHAR(20) NOT NULL CHECK (registration_status IN ('pending', 'completed', 'cancelled'))
 );
 
 CREATE TABLE Payment (
@@ -136,10 +136,11 @@ CREATE TABLE Payment (
   reservation_id INTEGER NOT NULL REFERENCES Reservation(id),
   total_amount DECIMAL(10, 2) NOT NULL,
   payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('debit_card', 'cash', 'bank_transfer')),
-  payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN ('pending', 'completed', 'failed')),
+  payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN ('pending', 'completed', 'failed', 'cancelled')),
   payment_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   paid_by INTEGER NOT NULL REFERENCES Account(id),
-  mp_payment_id VARCHAR(100) UNIQUE
+  mp_payment_id VARCHAR(100) UNIQUE,
+  proof_transfer TEXT
 );
 
 CREATE TABLE MatchPlayer (

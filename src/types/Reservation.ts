@@ -16,7 +16,7 @@ export interface PreReserveModel {
   court_id: string;
   match_id?: string;
   expiration_date: string;
-  registration_status: "pending" | "confirmed" | "cancelled";
+  registration_status: "pending" | "completed" | "cancelled";
 }
 
 export interface ReservationModelSuccess {

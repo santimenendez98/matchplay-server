@@ -79,7 +79,7 @@ export const joinMatch = async (
     const match = await getMatchByIdQuery(match_id);
     const player = await getAccountByIdQuery(player_id);
     const cantPlayers = await getCantPlayersByScheduleQuery(match_id);
-    const findPlayer = await getPlayerJoinedByMatchQuery(match_id, player_id);
+    const findPlayer = await getPlayerJoinedByMatchQuery(player_id, match_id);
 
     if (match.rowCount === 0) {
       return res
@@ -91,6 +91,13 @@ export const joinMatch = async (
       return res
         .status(404)
         .json({ message: "An error ocurred", error: "Player not found" });
+    }
+
+    if (player.rows[0].account_type == "admin") {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Admins cannot join matches",
+      });
     }
 
     if (cantPlayers.rowCount === 0) {
@@ -122,7 +129,7 @@ export const joinMatch = async (
         updatePlayer.rows[0].current_players === cantPlayers.rows[0].max_players
       ) {
         await updateStatusMatchQuery(match_id, "completed");
-        await updatePreReserveStatusQuery(match_id, "confirmed");
+        await updatePreReserveStatusQuery(match_id, "completed");
         await updateReservationStatusQuery(
           match.rows[0].reservation_id,
           "confirmed"
