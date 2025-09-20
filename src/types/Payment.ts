@@ -57,3 +57,13 @@ export interface PaymentCashBody {
   reservation_id: string;
   account_id: string;
 }
+
+export interface refundBody {
+  id?: string;
+  payment_id: string;
+  proof_refund?: string;
+  refund_reason?: string;
+  refund_status?: "pending" | "completed" | "failed";
+  refunded_by?: string;
+  refund_date?: string;
+}

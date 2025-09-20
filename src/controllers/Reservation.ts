@@ -56,9 +56,12 @@ import {
 } from "../services/webSocket";
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
+  createRefundQuery,
+  getPaymentByReservation,
   getPaymentByReservationAndAccount,
   updatePaymentStatusQuery,
 } from "../db/PaymentQueries";
+import { refundBody } from "../types/Payment";
 
 // Get all reservations
 export const getReservations = async (
@@ -279,6 +282,16 @@ export const cancelReservation = async (
 
     if (payment.rows.length > 0 && payment.rows[0].id) {
       await updatePaymentStatusQuery(payment.rows[0].id, "cancelled");
+
+      // Create Refund if payment exists
+
+      const data: refundBody = {
+        payment_id: payment.rows[0].id,
+        refund_reason: "Reservation cancelled",
+        refund_date: getCurrentTime(),
+      };
+
+      await createRefundQuery(data);
     }
 
     // 6. Free the court in the corresponding schedule
@@ -341,13 +354,6 @@ export const cancelPreReservation = async (
       });
     }
 
-    if (reservation.rows[0].status.includes("confirmed")) {
-      return res.status(400).json({
-        message: "An error ocurred",
-        error: "Reservation already completed",
-      });
-    }
-
     const match = await getMatchByReservationQuery(reservation_id);
     const court = await getCourtByIdQuery(match.rows[0].court_id);
 
@@ -382,6 +388,21 @@ export const cancelPreReservation = async (
         await updateStatusMatchQuery(match.rows[0].id, "cancelled");
         await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
         await updatePaymentStatusQuery(reservation.rows[0].id, "cancelled");
+
+        // Create Refund if payment exists
+        const payment = await getPaymentByReservation(reservation_id);
+
+        if (payment.rows.length > 0 && payment.rows[0].id) {
+          payment.rows.map((pay) => {
+            const data: refundBody = {
+              payment_id: pay.id!,
+              refund_reason: "Match cancelled",
+              refund_date: today,
+            };
+
+            createRefundQuery(data);
+          });
+        }
 
         // Notify users about the cancellation
         emitNotificationCourt(reservation.rows[0].schedule_id);

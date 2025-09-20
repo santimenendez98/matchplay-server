@@ -13,6 +13,7 @@ import {
   PaymentTransferBody,
   proofBodyModel,
   proofPaymentData,
+  refundBody,
 } from "../types/Payment";
 import {
   getReservationWithIdQuery,
@@ -30,9 +31,12 @@ import {
 } from "../db/MatchQueries";
 import {
   createPaymentHistoryQuery,
+  createRefundQuery,
   getPaymentByIdQuery,
   getPaymentByReservationAndAccount,
+  getRefundByPaymentIdQuery,
   updatePaymentStatusQuery,
+  updateStatusRefundQuery,
 } from "../db/PaymentQueries";
 import { getCurrentTime } from "../services/addMinutes";
 import { errorResponseModel, successResponseModel } from "../types";
@@ -248,7 +252,7 @@ export const generateProof = async (
   }
 };
 
-// Bank transfer payment(FALTA GESTIONAR SI EL PAGO YA SE REALIZO)
+// Bank transfer payment
 export const createBankTransfer = async (
   req: Request<{}, {}, PaymentTransferBody>,
   res: Response<errorResponseModel | paymentResponse>
@@ -558,5 +562,65 @@ export const createCashPayment = async (
     return res
       .status(400)
       .json({ error: "Error creating payment", message: err.message });
+  }
+};
+
+// Refund Payment
+export const refundPayment = async (
+  req: Request<{}, {}, refundBody>,
+  res: Response<errorResponseModel | successResponseModel>
+) => {
+  try {
+    const { payment_id, proof_refund, refund_status, refunded_by } = req.body;
+
+    const payment = await getPaymentByIdQuery(payment_id);
+
+    if (payment.rows.length === 0) {
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "Payment not found",
+      });
+    }
+
+    const verifyPayment = await getRefundByPaymentIdQuery(payment_id);
+
+    if (
+      verifyPayment.rows.length > 0 &&
+      verifyPayment.rows[0].refund_status !== "pending"
+    ) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "There is already a refund for this payment",
+      });
+    }
+
+    // Verify proof of refund URL
+    const verifyProof = await verifyCloudinaryFile(proof_refund!);
+
+    if (!verifyProof) {
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "File not found",
+      });
+    }
+
+    // Create refund
+    const refundData: refundBody = {
+      payment_id,
+      proof_refund,
+      refunded_by,
+      refund_status,
+    };
+
+    await updateStatusRefundQuery(refundData);
+
+    return res.status(200).json({
+      message: "Refund created successfully",
+    });
+  } catch (error) {
+    const err = error as Error;
+    return res
+      .status(400)
+      .json({ error: "Error creating refund", message: err.message });
   }
 };

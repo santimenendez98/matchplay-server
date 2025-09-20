@@ -7,6 +7,7 @@ import {
   createCashPayment,
   createDebitPayment,
   generateProof,
+  refundPayment,
 } from "../controllers/MercadoPago";
 import { authMiddleware, rolMiddleware } from "../middleware";
 
@@ -130,6 +131,35 @@ paymentRouter.post(
   rolMiddleware(["user"]),
   handleValidationErrors,
   createCashPayment
+);
+
+// Create refund
+paymentRouter.post(
+  "/refund",
+  body("payment_id")
+    .notEmpty()
+    .withMessage("Payment ID is required")
+    .isString()
+    .withMessage("Payment ID must be a string"),
+  body("proof_refund")
+    .notEmpty()
+    .withMessage("Proof of refund is required")
+    .isString()
+    .withMessage("Proof of refund must be a string"),
+  body("refund_status")
+    .notEmpty()
+    .withMessage("Refund status is required")
+    .isIn(["completed", "failed"])
+    .withMessage("Refund status must be either 'completed' or 'failed'"),
+  body("refunded_by")
+    .notEmpty()
+    .withMessage("Refunded by is required")
+    .isString()
+    .withMessage("Refunded by must be a string"),
+  authMiddleware,
+  rolMiddleware(["admin"]),
+  handleValidationErrors,
+  refundPayment
 );
 
 export default paymentRouter;

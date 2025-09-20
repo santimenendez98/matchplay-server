@@ -154,11 +154,10 @@ CREATE TABLE MatchPlayer (
 CREATE TABLE Refund (
   id SERIAL PRIMARY KEY,
   payment_id INTEGER NOT NULL REFERENCES Payment(id),
-  total_amount DECIMAL(10, 2) NOT NULL,
-  refund_method VARCHAR(50) NOT NULL CHECK (refund_method IN ('debit_card', 'cash', 'bank_transfer')),
   refund_status VARCHAR(20) NOT NULL CHECK (refund_status IN ('pending', 'completed', 'failed')),
   refund_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  refunded_by INTEGER NOT NULL REFERENCES Account(id),
+  refunded_by INTEGER REFERENCES Account(id),
+  proof_refund TEXT,
   refund_reason TEXT NOT NULL
 );
 
