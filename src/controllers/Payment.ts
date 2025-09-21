@@ -31,7 +31,6 @@ import {
 } from "../db/MatchQueries";
 import {
   createPaymentHistoryQuery,
-  createRefundQuery,
   getPaymentByIdQuery,
   getPaymentByReservationAndAccount,
   getRefundByPaymentIdQuery,

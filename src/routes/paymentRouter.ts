@@ -8,7 +8,7 @@ import {
   createDebitPayment,
   generateProof,
   refundPayment,
-} from "../controllers/MercadoPago";
+} from "../controllers/Payment";
 import { authMiddleware, rolMiddleware } from "../middleware";
 
 export const paymentRouter = Router();

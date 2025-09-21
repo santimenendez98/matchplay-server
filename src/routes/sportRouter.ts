@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { getSports, createSport, deleteSport } from "../controllers/Sport";
-import { authMiddleware } from "../middleware";
+import { authMiddleware, rolMiddleware } from "../middleware";
 import { body, param } from "express-validator";
 import { handleValidationErrors } from "../middleware/validatorErrors";
 
 export const sportRouter = Router();
 
-// Get all sports(ONLY ACCESSIBLE BY APP CREATOR)
+// Get all sports
 sportRouter.get("/", authMiddleware, getSports);
 
 // Create a new sport(ONLY ACCESSIBLE BY APP CREATOR)
@@ -24,6 +24,7 @@ sportRouter.post(
     .withMessage("Max players must be a number"),
   handleValidationErrors,
   authMiddleware,
+  rolMiddleware(["creator"]),
   createSport
 );
 
@@ -37,6 +38,7 @@ sportRouter.delete(
     .withMessage("ID must be a string"),
   handleValidationErrors,
   authMiddleware,
+  rolMiddleware(["creator"]),
   deleteSport
 );
 

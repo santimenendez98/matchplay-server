@@ -14,6 +14,7 @@ import {
   deleteComplexQuery,
 } from "../db/ComplexQueries";
 import { getAccountAdminQuery } from "../db/AccountQueries";
+import { verifyCloudinaryFile } from "../services/cloudinary";
 
 export const getComplexData = async (
   req: Request,
@@ -42,6 +43,17 @@ export const createComplexData = async (
         message: "An error ocurred",
         error: "Account not found or is not an admin",
       });
+    }
+
+    if (image_url) {
+      const isValidImage = await verifyCloudinaryFile(image_url);
+
+      if (!isValidImage) {
+        return res.status(400).json({
+          message: "An error ocurred",
+          error: "Invalid image URL",
+        });
+      }
     }
 
     const newComplex = await createComplexQuery({

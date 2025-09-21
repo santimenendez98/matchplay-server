@@ -26,7 +26,7 @@ CREATE TABLE Account (
   password VARCHAR(255) NOT NULL,
   birthdate DATE NOT NULL,
   phone VARCHAR(9) NOT NULL,
-  account_type VARCHAR(50) NOT NULL CHECK (account_type IN ('user', 'admin'))
+  account_type VARCHAR(50) NOT NULL CHECK (account_type IN ('user', 'admin', 'creator')) -- creator only hardcoded
 );
 
 CREATE TABLE Sport (
