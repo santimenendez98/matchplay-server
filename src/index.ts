@@ -10,24 +10,43 @@ import handleExpiredPreReserves from "./cronjobs/preReserveCronJob";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { webSocketHandler } from "./services/webSocket";
-
-// Initialize Express app and Socket.IO server
-const port = Number(process.env.PORT) || 3000;
-const app = express();
-const server = createServer(app);
-export const io = new Server(server, {
-  cors: {
-    origin: process.env.CORS_ORIGIN,
-  },
-});
+import cors from "cors";
 
 dotenv.config();
 
+const port = Number(process.env.PORT) || 3000;
+const app = express();
+const server = createServer(app);
+
+// Configurar orígenes permitidos
+const origin = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()) || [];
+
+// ⚡ IMPORTANTE: usar CORS ANTES de las rutas
+app.use(
+  cors({
+    origin: origin,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
 
+// Rutas
 app.use("/api", router);
 
-// Connect to the database and start the server
+// Socket.IO
+export const io = new Server(server, {
+  cors: {
+    origin: origin,
+    methods: ["GET", "POST"],
+  },
+});
+
+io.on("connection", webSocketHandler);
+
+// Conexión a DB y cron jobs
 server.listen(port, () => {
   pool
     .connect()
@@ -37,6 +56,3 @@ server.listen(port, () => {
   handleExpiredPreReserves();
   checkScheduleCronJob();
 });
-
-// Set up WebSocket connection
-io.on("connection", webSocketHandler);

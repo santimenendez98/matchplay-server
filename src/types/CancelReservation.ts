@@ -3,7 +3,7 @@ export interface CancelReservationModel {
   reservation_id: string;
   requested_by: string;
   reason: string;
-  cancel_status: ["pending" | "approved" | "rejected"];
+  cancel_status: "pending" | "approved" | "rejected";
   requested_at: string;
   reviewed_by?: string;
   reviewed_at?: string;
@@ -12,13 +12,16 @@ export interface CancelReservationModel {
 export interface CancelModel {
   id?: string;
   reservation_id: string;
-  match_id: string;
+  match_id?: string;
   canceled_by: string;
   cancelation_reason?: string;
   cancelation_date: string;
 }
 
-export type BodyCancelModel = Omit<CancelModel, "id" | "cancelation_date">;
+export type BodyCancelModel = Pick<
+  CancelModel,
+  "reservation_id" | "canceled_by"
+>;
 
 export type BodyCancelPreReserveModel = Omit<
   CancelModel,

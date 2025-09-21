@@ -8,3 +8,7 @@ export interface errorResponseModel {
 export interface paramsModels extends ParamsDictionary {
   id: string;
 }
+
+export interface successResponseModel {
+  message: string;
+}

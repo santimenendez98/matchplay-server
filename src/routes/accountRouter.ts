@@ -13,7 +13,7 @@ import { handleValidationErrors } from "../middleware/validatorErrors";
 export const accountRouter = Router();
 
 // Get all accounts(ONLY ACCESSIBLE BY APP CREATOR)
-accountRouter.get("/", authMiddleware, getAccounts);
+accountRouter.get("/", authMiddleware, rolMiddleware(["creator"]), getAccounts);
 
 // Get account by id(ONLY ACCESSIBLE BY APP CREATOR)
 accountRouter.get(
@@ -25,6 +25,7 @@ accountRouter.get(
     .withMessage("ID must be a string"),
   handleValidationErrors,
   authMiddleware,
+  rolMiddleware(["creator"]),
   getAccountById
 );
 
@@ -61,14 +62,35 @@ accountRouter.delete(
 // Create a new account
 accountRouter.post(
   "/",
-  body("name").isString().withMessage("Name must be a string"),
-  body("email").isEmail().withMessage("Email must be a valid email"),
-  body("password").isString().withMessage("Password must be a string"),
+  body("name")
+    .notEmpty()
+    .withMessage("Name is required")
+    .isString()
+    .withMessage("Name must be a string"),
+  body("email")
+    .notEmpty()
+    .withMessage("Email is required")
+    .isEmail()
+    .withMessage("Email must be a valid email"),
+  body("password")
+    .notEmpty()
+    .withMessage("Password is required")
+    .isString()
+    .withMessage("Password must be a string"),
   body("birthdate")
+    .notEmpty()
+    .withMessage("Birthdate is required")
     .isISO8601()
     .withMessage("Birthdate must be a valid date (yyyy-mm-dd)"),
-  body("phone").isString().withMessage("Phone must be a string"),
-  body("account_type").isString().withMessage("Account type must be a string"),
+  body("phone")
+    .notEmpty()
+    .withMessage("Phone is required")
+    .isString()
+    .withMessage("Phone must be a string"),
+  body("account_type")
+    .notEmpty()
+    .withMessage("Account type is required")
+    .isIn(["user", "admin"]),
   handleValidationErrors,
   createAccount
 );

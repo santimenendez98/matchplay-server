@@ -32,6 +32,7 @@ export const loginController = async (
     const data = {
       id: account.id,
       token: token,
+      rol: account.account_type,
     };
 
     res.status(200).json({ message: "Login successful", data: data });

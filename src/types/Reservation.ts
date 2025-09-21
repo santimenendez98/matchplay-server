@@ -8,7 +8,7 @@ export interface ReservationModel {
   time_reserved: number;
   reservation_date: string;
   is_match: boolean;
-  status: ["pending" | "confirmed" | "cancelled"];
+  status: "pending" | "confirmed" | "cancelled";
 }
 
 export interface PreReserveModel {
@@ -16,7 +16,7 @@ export interface PreReserveModel {
   court_id: string;
   match_id?: string;
   expiration_date: string;
-  registration_status: ["pending" | "confirmed" | "cancelled"];
+  registration_status: "pending" | "completed" | "cancelled";
 }
 
 export interface ReservationModelSuccess {

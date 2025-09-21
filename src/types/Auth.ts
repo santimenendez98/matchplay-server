@@ -5,8 +5,9 @@ export interface AuthModel {
 }
 
 export interface AuthResponse {
-  id: number;
+  id: string;
   token: string;
+  rol: string;
 }
 
 export interface AuthModelSuccess {

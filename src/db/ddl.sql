@@ -26,7 +26,7 @@ CREATE TABLE Account (
   password VARCHAR(255) NOT NULL,
   birthdate DATE NOT NULL,
   phone VARCHAR(9) NOT NULL,
-  account_type VARCHAR(50) NOT NULL CHECK (account_type IN ('user', 'admin'))
+  account_type VARCHAR(50) NOT NULL CHECK (account_type IN ('user', 'admin', 'creator')) -- creator only hardcoded
 );
 
 CREATE TABLE Sport (
@@ -116,15 +116,10 @@ CREATE TABLE Match (
   creator_id INTEGER NOT NULL REFERENCES Account(id),
   court_id INTEGER NOT NULL REFERENCES Court(id),
   reservation_id INTEGER NOT NULL REFERENCES Reservation(id),
+  price_per_player DECIMAL(10, 2) NOT NULL,
   current_players INTEGER NOT NULL DEFAULT 0,
+  total_players INTEGER NOT NULL,
   status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'completed', 'cancelled'))
-);
-
-CREATE TABLE MatchPlayer (
-  match_id INTEGER NOT NULL REFERENCES Match(id),
-  player_id INTEGER NOT NULL REFERENCES Account(id),
-  joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (match_id, player_id)
 );
 
 CREATE TABLE PreRegistration (
@@ -132,28 +127,37 @@ CREATE TABLE PreRegistration (
   court_id INTEGER NOT NULL REFERENCES Court(id),
   match_id INTEGER NOT NULL REFERENCES Match(id),
   expiration_date TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 hour'),
-  registration_status VARCHAR(20) NOT NULL CHECK (registration_status IN ('pending', 'confirmed', 'cancelled'))
+  registration_status VARCHAR(20) NOT NULL CHECK (registration_status IN ('pending', 'completed', 'cancelled'))
 );
 
 CREATE TABLE Payment (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES Account(id),
-  match_id INTEGER NOT NULL REFERENCES Match(id),
+  reservation_id INTEGER NOT NULL REFERENCES Reservation(id),
   total_amount DECIMAL(10, 2) NOT NULL,
-  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('debit card', 'cash', 'bank_transfer')),
-  payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN ('pending', 'completed', 'failed')),
+  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('debit_card', 'cash', 'bank_transfer')),
+  payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN ('pending', 'completed', 'failed', 'cancelled')),
   payment_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  paid_by INTEGER NOT NULL REFERENCES Account(id)
+  paid_by INTEGER NOT NULL REFERENCES Account(id),
+  mp_payment_id VARCHAR(100) UNIQUE,
+  proof_transfer TEXT
+);
+
+CREATE TABLE MatchPlayer (
+  match_id INTEGER NOT NULL REFERENCES Match(id),
+  player_id INTEGER NOT NULL REFERENCES Account(id),
+  joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('debit_card', 'cash', 'bank_transfer')) DEFAULT 'cash',
+  PRIMARY KEY (match_id, player_id)
 );
 
 CREATE TABLE Refund (
   id SERIAL PRIMARY KEY,
   payment_id INTEGER NOT NULL REFERENCES Payment(id),
-  total_amount DECIMAL(10, 2) NOT NULL,
-  refund_method VARCHAR(50) NOT NULL CHECK (refund_method IN ('debit card', 'cash', 'bank_transfer')),
   refund_status VARCHAR(20) NOT NULL CHECK (refund_status IN ('pending', 'completed', 'failed')),
   refund_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  refunded_by INTEGER NOT NULL REFERENCES Account(id),
+  refunded_by INTEGER REFERENCES Account(id),
+  proof_refund TEXT,
   refund_reason TEXT NOT NULL
 );
 

@@ -12,3 +12,7 @@ export const createSportQuery = (name: string, max_players: number) =>
 
 export const deleteSportQuery = (id: number) =>
   pool.query<SportModel>(`DELETE FROM Sport WHERE id = $1 RETURNING *`, [id]);
+
+export const getSportByReservation = (reservation_id: string) => {
+  return pool.query<SportModel>(`SELECT * FROM Sport`);
+};

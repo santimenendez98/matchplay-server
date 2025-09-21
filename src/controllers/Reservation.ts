@@ -1,6 +1,6 @@
 import { Response, Request } from "express";
 import {
-  addMinutesToTime,
+  addOrRemoveMinutresToTime,
   getCurrentTime,
   getNext1Hour,
   isWithin24Hours,
@@ -31,6 +31,7 @@ import { MatchModel, MatchGetModelSuccess } from "../types/Match";
 import {
   createMatchQuery,
   deleteMatchPlayerQuery,
+  getCantPlayersByScheduleQuery,
   getMatchByReservationQuery,
   joinMatchQuery,
   updateStatusMatchQuery,
@@ -53,8 +54,16 @@ import {
   emitNotificationCancelRequest,
   emitNotificationCourt,
 } from "../services/webSocket";
-import { createPayment } from "../services/mercadoPago";
+import { getAccountByIdQuery } from "../db/AccountQueries";
+import {
+  createRefundQuery,
+  getPaymentByReservation,
+  getPaymentByReservationAndAccount,
+  updatePaymentStatusQuery,
+} from "../db/PaymentQueries";
+import { refundBody } from "../types/Payment";
 
+// Get all reservations
 export const getReservations = async (
   req: Request,
   res: Response<ReservationModelSuccess | errorResponseModel>
@@ -70,6 +79,7 @@ export const getReservations = async (
   }
 };
 
+// Create a new reservation
 export const createReservation = async (
   req: Request<{}, {}, ReservationModel>,
   res: Response<
@@ -83,6 +93,13 @@ export const createReservation = async (
     // Get the schedule details
     const scheduleRes = await getScheduleById(schedule_id);
     const reservation = await checkReservationExistsQuery(account_id, today);
+    const account = await getAccountByIdQuery(account_id);
+
+    if (account.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Account not found" });
+    }
 
     if (scheduleRes.rows.length === 0) {
       return res
@@ -92,7 +109,7 @@ export const createReservation = async (
 
     const time = time_reserved === 1 ? 60 : 90;
     const start_time = scheduleRes.rows[0].start_time;
-    const end_time = addMinutesToTime(start_time, time);
+    const end_time = addOrRemoveMinutresToTime(start_time, "+", time);
 
     //Verify if the hour is available
     const scheduleReserve = await verifyHourAvailabilityQuery(
@@ -131,9 +148,9 @@ export const createReservation = async (
       start_time,
       end_time,
       time_reserved,
-      reservation_date: today,
+      reservation_date: scheduleRes.rows[0].schedule_date,
       is_match,
-      status: ["pending"],
+      status: "pending",
     });
 
     // Update the availability of the schedule
@@ -142,14 +159,25 @@ export const createReservation = async (
     );
 
     if (is_match && result.rows[0].id) {
+      const cantPlayers = await getCantPlayersByScheduleQuery(schedule_id);
+      const price = totalPrice / cantPlayers.rows[0].max_players;
       const match: MatchModel = {
         court_id: scheduleRes.rows[0].court_id,
         creator_id: account_id,
         reservation_id: result.rows[0].id,
+        total_players: cantPlayers.rows[0].max_players,
+        price_per_player: price,
       };
 
       const matchReserve = await createMatchQuery(match);
       const time = getNext1Hour();
+
+      if (!matchReserve.rows[0].id) {
+        return res.status(500).json({
+          message: "An error ocurred",
+          error: "Could not create match for the reservation",
+        });
+      }
 
       // Create pre-reservation if match is created
       await createPreReserveQuery({
@@ -170,26 +198,9 @@ export const createReservation = async (
       });
     }
 
-    // Create the payment
-
-    const paymentData = {
-      items: [
-        {
-          id: scheduleRes.rows[0].id ? scheduleRes.rows[0].id : "0",
-          title: `Reservation for ${start_time} on ${scheduleRes.rows[0].schedule_date}`,
-          quantity: 1,
-          unit_price: Number(totalPrice),
-        },
-      ],
-      external_reference: result.rows[0].id ? result.rows[0].id : "0",
-    };
-
-    const paymentResponse = await createPayment(paymentData);
-
     return res.status(201).json({
       message: "Reservation created successfully",
       data: result.rows[0],
-      payment_url: paymentResponse,
     });
   } catch (error) {
     const err = error as Error;
@@ -200,100 +211,117 @@ export const createReservation = async (
   }
 };
 
+// Cancel a reservation
 export const cancelReservation = async (
   req: Request<{}, {}, BodyCancelModel>,
   res: Response<{ message: string } | errorResponseModel>
 ) => {
   try {
-    const { reservation_id, match_id, canceled_by } = req.body;
+    const { reservation_id, canceled_by } = req.body;
 
-    // Get the reservation details
+    // 1. Find the reservation
     const reservation = await getReservationWithIdQuery(reservation_id);
-    const cancelRequest = await getCancelRequestByReserveQuery(reservation_id);
-    const match = await getMatchByReservationQuery(reservation_id);
-
-    //Additional check to ensure reservation exists and is not already cancelled or completed
     if (reservation.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "An error ocurred", error: "Reservation not found" });
+      return res.status(404).json({
+        message: "An error occurred",
+        error: "Reservation not found",
+      });
     }
 
-    if (reservation.rows[0].status.includes("cancelled")) {
+    const reservationData = reservation.rows[0];
+
+    // 2. Validate reservation status
+    if (reservationData.status === "cancelled") {
       return res.status(400).json({
-        message: "An error ocurred",
+        message: "An error occurred",
         error: "Reservation already cancelled",
       });
     }
 
-    if (reservation.rows[0].status.includes("confirmed")) {
-      return res.status(400).json({
-        message: "An error ocurred",
-        error: "Reservation already completed",
-      });
-    }
-
+    // 3. Check if reservation is part of a match (cannot cancel here)
+    const match = await getMatchByReservationQuery(reservation_id);
     if (match.rows.length > 0) {
       return res.status(400).json({
-        message: "An error ocurred",
-        error: "This request could not cancel the match",
+        message: "An error occurred",
+        error: "This request cannot cancel a match",
       });
     }
 
-    //Add cancelation to history
-    const court = await getScheduleById(reservation.rows[0].schedule_id);
+    // 4. Check if a cancellation request already exists
+    const cancelRequest = await getCancelRequestByReserveQuery(reservation_id);
+    const request = cancelRequest.rows[0];
 
-    if (cancelRequest.rows.length > 0) {
-      // Check if the cancel request is approved
+    if (request?.id) {
       if (
-        cancelRequest.rows[0].cancel_status.includes("approved") ||
-        cancelRequest.rows[0].cancel_status.includes("rejected")
+        request.cancel_status === "approved" ||
+        request.cancel_status === "rejected"
       ) {
         return res.status(400).json({
-          message: "An error ocurred",
+          message: "An error occurred",
           error: "Cancel request already processed",
         });
       }
 
+      // Create a cancellation record based on the request
       const cancelation: CancelModel = {
-        reservation_id: cancelRequest.rows[0].reservation_id,
-        match_id,
+        reservation_id: request.reservation_id,
         canceled_by,
-        cancelation_reason: cancelRequest.rows[0].reason,
+        cancelation_reason: request.reason,
         cancelation_date: getCurrentTime(),
       };
 
-      await updateCancelRequestStatusQuery(
-        cancelRequest.rows[0].id ? cancelRequest.rows[0].id : "",
-        "approved"
-      );
+      await updateCancelRequestStatusQuery(request.id, "approved");
       await cancelReservationQuery(cancelation);
     }
 
-    // Update the schedule availability
-    await updateScheduleAvailable(
-      court.rows[0].court_id,
-      reservation.rows[0].start_time,
-      reservation.rows[0].end_time
+    // 5. Update payment status if exists for this reservation
+    const payment = await getPaymentByReservationAndAccount(
+      reservation_id,
+      reservationData.account_id
     );
 
-    // Update the reservation status to cancelled
-    if (reservation.rows[0].id) {
-      await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
+    if (payment.rows.length > 0 && payment.rows[0].id) {
+      await updatePaymentStatusQuery(payment.rows[0].id, "cancelled");
+
+      // Create Refund if payment exists
+
+      const data: refundBody = {
+        payment_id: payment.rows[0].id,
+        refund_reason: "Reservation cancelled",
+        refund_date: getCurrentTime(),
+      };
+
+      await createRefundQuery(data);
     }
 
-    // Notify users about the cancellation
-    emitNotificationCourt(reservation.rows[0].schedule_id);
+    // 6. Free the court in the corresponding schedule
+    const court = await getScheduleById(reservationData.schedule_id);
+    await updateScheduleAvailable(
+      court.rows[0].court_id,
+      reservationData.start_time,
+      reservationData.end_time
+    );
 
-    res.status(200).json({
+    // 7. Update reservation status
+    if (reservationData.id) {
+      await updateReservationStatusQuery(reservationData.id, "cancelled");
+    }
+
+    // 8. Notify users about the cancellation
+    emitNotificationCourt(reservationData.schedule_id);
+
+    return res.status(200).json({
       message: "Reservation cancelled successfully",
     });
-  } catch (error) {
-    const err = error as Error;
-    res.status(500).json({ message: "An error occurred", error: err.message });
+  } catch (error: any) {
+    return res.status(500).json({
+      message: "An error occurred",
+      error: error.message,
+    });
   }
 };
 
+// Cancel a pre-reservation (match)
 export const cancelPreReservation = async (
   req: Request<{}, {}, BodyCancelPreReserveModel>,
   res: Response<errorResponseModel | CancelReservationModelSuccess>
@@ -326,13 +354,6 @@ export const cancelPreReservation = async (
       });
     }
 
-    if (reservation.rows[0].status.includes("confirmed")) {
-      return res.status(400).json({
-        message: "An error ocurred",
-        error: "Reservation already completed",
-      });
-    }
-
     const match = await getMatchByReservationQuery(reservation_id);
     const court = await getCourtByIdQuery(match.rows[0].court_id);
 
@@ -352,7 +373,6 @@ export const cancelPreReservation = async (
         cancelation_date: today,
       };
 
-      await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
       const resRequest = await cancelReservationQuery(cancelation);
 
       // Update the schedule availability and status
@@ -364,10 +384,25 @@ export const cancelPreReservation = async (
           reservation.rows[0].end_time
         );
 
-        await deleteMatchPlayerQuery(match.rows[0].id);
         await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
         await updateStatusMatchQuery(match.rows[0].id, "cancelled");
         await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
+        await updatePaymentStatusQuery(reservation.rows[0].id, "cancelled");
+
+        // Create Refund if payment exists
+        const payment = await getPaymentByReservation(reservation_id);
+
+        if (payment.rows.length > 0 && payment.rows[0].id) {
+          payment.rows.map((pay) => {
+            const data: refundBody = {
+              payment_id: pay.id!,
+              refund_reason: "Match cancelled",
+              refund_date: today,
+            };
+
+            createRefundQuery(data);
+          });
+        }
 
         // Notify users about the cancellation
         emitNotificationCourt(reservation.rows[0].schedule_id);
@@ -385,6 +420,7 @@ export const cancelPreReservation = async (
   }
 };
 
+// Create cancellation request for a reservation
 export const cancelReservationRequest = async (
   req: Request<{}, {}, CancelReservationModel>,
   res: Response<errorResponseModel | CancelReservationModelSuccess>
