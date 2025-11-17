@@ -5,7 +5,7 @@ import {
   addOrRemoveMinutresToTime,
   getCurrentTime,
   timeToMinutes,
-} from "../services/addMinutes";
+} from "../services/DateService";
 import {
   WeekScheduleCourtModel,
   WeekScheduleCourtGetModelSuccess,

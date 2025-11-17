@@ -5,6 +5,7 @@ import {
   leaveMatch,
   sendMessageToMatch,
   historyChatMatch,
+  getMatchByCourt,
 } from "../controllers/Match";
 import { authMiddleware, rolMiddleware } from "../middleware";
 import { body, param } from "express-validator";
@@ -14,6 +15,18 @@ export const matchRouter = Router();
 
 // Get all matches
 matchRouter.get("/", authMiddleware, getMatches);
+
+// Get match per complex
+matchRouter.get(
+  "/:id",
+  param("id")
+    .notEmpty()
+    .withMessage("Match ID is required")
+    .isString()
+    .withMessage("Match ID must be a string"),
+  authMiddleware,
+  getMatchByCourt
+);
 
 // Join a match
 matchRouter.post(
@@ -89,5 +102,7 @@ matchRouter.get(
   rolMiddleware(["admin"]),
   historyChatMatch
 );
+
+// Get players for a match
 
 export default matchRouter;

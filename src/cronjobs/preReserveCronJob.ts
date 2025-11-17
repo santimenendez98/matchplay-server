@@ -10,7 +10,7 @@ import {
   updateStatusMatchQuery,
 } from "../db/MatchQueries";
 import { updateScheduleAvailable } from "../db/ScheduleCourtQueries";
-import { getCurrentTime } from "../services/addMinutes";
+import { getCurrentTime } from "../services/DateService";
 
 export const handleExpiredPreReserves = () => {
   cron.schedule("*/5 * * * *", async () => {

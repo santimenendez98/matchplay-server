@@ -78,6 +78,12 @@ export const getMatchByReservationQuery = async (reservation_id: string) => {
   );
 };
 
+export const getMatchByCourtQuery = async (court_id: string) => {
+  return pool.query<MatchModel>(`SELECT * FROM Match WHERE court_id = $1`, [
+    court_id,
+  ]);
+};
+
 /*
 ----------- MatchPlayer --------------
 */

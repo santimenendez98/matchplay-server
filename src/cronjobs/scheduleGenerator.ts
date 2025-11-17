@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { addDays } from "date-fns";
 import { generateScheduleForDay } from "../services/scheduleService";
-import { getCurrentTime } from "../services/addMinutes";
+import { getCurrentTime } from "../services/DateService";
 import { checkScheduleStausQuery } from "../db/ScheduleCourtQueries";
 
 export const startScheduleCronJob = () => {

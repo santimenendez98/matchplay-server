@@ -1,7 +1,7 @@
 import pool from "../db/connection";
 import { format, getDay } from "date-fns";
 import { createDayPriceQuery } from "../db/ScheduleDayPrIceQueries";
-import { getCurrentTime } from "./addMinutes";
+import { getCurrentTime, getDayOfWeek } from "./DateService";
 
 export const generateScheduleForDay = async (date: Date) => {
   const dayOfWeek = getDay(date);
@@ -11,6 +11,14 @@ export const generateScheduleForDay = async (date: Date) => {
     `SELECT * FROM WeekScheduleCourt WHERE day_of_week = $1`,
     [dayOfWeek]
   );
+
+  if (plantilla.rowCount === 0) {
+    console.log(
+      "No schedule template found for day of week:",
+      getDayOfWeek(dayOfWeek)
+    );
+    return;
+  }
 
   for (const row of plantilla.rows) {
     const scheduleDate = format(date, "yyyy-MM-dd" + " " + row.start_time);

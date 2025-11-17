@@ -14,18 +14,15 @@ export const loginController = async (
     const result = await getAccountByEmailQuery(email);
     const account = result.rows[0];
 
-    if (result.rowCount === 0 || !account.id) {
-      return res
-        .status(404)
-        .json({ message: "An error ocurred", error: "Account not found" });
-    }
-
     const isPasswordValid = await verifyPassword(password, account.password);
 
-    if (!isPasswordValid) {
+    if (!isPasswordValid || result.rowCount === 0 || !account.id) {
       return res
         .status(401)
-        .json({ message: "An error ocurred", error: "Invalid password" });
+        .json({
+          message: "An error ocurred",
+          error: "Invalid email or password",
+        });
     }
 
     const token = generateToken(account.id, account.account_type);

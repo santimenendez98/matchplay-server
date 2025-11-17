@@ -23,8 +23,11 @@ export const createAccountQuery = (account: AccountModel) =>
 export const deleteAccountQuery = (id: number | string) =>
   pool.query(`DELETE FROM Account WHERE id = $1`, [id]);
 
-export const updateAccoutQuery = (query: string, values: any[]) =>
-  pool.query<AccountModel[]>(query, values);
+export const updateAccountQuery = (id: string, account: AccountModel) =>
+  pool.query<AccountModel>(
+    `UPDATE Account SET name= COALESCE($1, name), email= COALESCE($2, email), birthdate= COALESCE($3, birthdate), phone= COALESCE($4, phone) WHERE id = $5 RETURNING *`,
+    [account.name, account.email, account.birthdate, account.phone, id]
+  );
 
 export const getAccountByEmailQuery = (email: string) =>
   pool.query<AccountModel>(`SELECT * FROM Account WHERE email = $1`, [email]);

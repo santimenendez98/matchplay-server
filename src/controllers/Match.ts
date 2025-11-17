@@ -20,6 +20,7 @@ import {
   quitMatchQuery,
   sendMessageToMatchQuery,
   getMessagesByMatchQuery,
+  getMatchByCourtQuery,
 } from "../db/MatchQueries";
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
@@ -27,8 +28,9 @@ import {
   updatePreReserveStatusQuery,
   updateReservationStatusQuery,
 } from "../db/ReservationQueries";
-import { getCurrentTime } from "../services/addMinutes";
+import { getCurrentTime } from "../services/DateService";
 import { emitMessageToMatch } from "../services/webSocket";
+import { getCourtByIdQuery } from "../db/CourtQueries";
 
 export const getMatches = async (
   req: Request,
@@ -42,6 +44,32 @@ export const getMatches = async (
     res
       .status(500)
       .json({ message: "Error fetching matches", error: err.message });
+  }
+};
+
+export const getMatchByCourt = async (
+  req: Request,
+  res: Response<MatchModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { id } = req.params;
+    const court = await getCourtByIdQuery(id);
+
+    if (court.rowCount === 0) {
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "Court not found",
+      });
+    }
+
+    const matchCourt = await getMatchByCourtQuery(id);
+    res.status(200).json({
+      message: "Match List",
+      data: matchCourt.rows,
+    });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
   }
 };
 

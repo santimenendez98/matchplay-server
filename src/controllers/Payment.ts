@@ -37,7 +37,7 @@ import {
   updatePaymentStatusQuery,
   updateStatusRefundQuery,
 } from "../db/PaymentQueries";
-import { getCurrentTime } from "../services/addMinutes";
+import { getCurrentTime } from "../services/DateService";
 import { errorResponseModel, successResponseModel } from "../types";
 import { verifyCloudinaryFile } from "../services/cloudinary";
 

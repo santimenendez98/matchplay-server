@@ -12,7 +12,7 @@ import {
   getAccountByIdQuery,
   createAccountQuery,
   deleteAccountQuery,
-  updateAccoutQuery,
+  updateAccountQuery,
 } from "../db/AccountQueries";
 
 export const getAccounts = async (
@@ -96,7 +96,7 @@ export const deleteAccount = async (
 
 export const updateAccount = async (
   req: Request<paramsModels, {}, UpdateAccountModel>,
-  res: Response<AccountModelSuccess | errorResponseModel>
+  res: Response<AccountGetModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
   const { name, email, birthdate, phone } = req.body;
@@ -109,25 +109,13 @@ export const updateAccount = async (
         .json({ message: "An error ocurred", error: "Account not found" });
     }
 
-    const fields = { name, email, birthdate, phone };
-    const keys = Object.keys(fields).filter(
-      (key) => fields[key as keyof typeof fields] !== undefined
-    );
+    const result = await updateAccountQuery(id, {
+      name,
+      email,
+      birthdate,
+      phone,
+    } as AccountModel);
 
-    if (keys.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "An error ocurred", error: "No fields to update" });
-    }
-    const setClause = keys.map((key, idx) => `${key} = $${idx + 1}`).join(", ");
-    const values = keys.map((key) => fields[key as keyof typeof fields]);
-
-    const result = await updateAccoutQuery(
-      `UPDATE account SET ${setClause} WHERE id = $${
-        keys.length + 1
-      } RETURNING *`,
-      [...values, id]
-    );
     res
       .status(200)
       .json({ message: "Account updated successfully", data: result.rows[0] });

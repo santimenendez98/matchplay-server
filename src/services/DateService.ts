@@ -51,6 +51,19 @@ export function getOnlyDate(date: string) {
   return formatDate;
 }
 
+export function getDayOfWeek(date: number): string {
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  return days[date];
+}
+
 export default {
   addOrRemoveMinutresToTime,
   timeToMinutes,

@@ -1,7 +1,7 @@
 import { Payment, MercadoPagoConfig } from "mercadopago";
 import { paymentDataBody, proofPaymentData } from "../types/Payment";
 import { getReservationWithIdQuery } from "../db/ReservationQueries";
-import { getOnlyDate } from "./addMinutes";
+import { getOnlyDate } from "./DateService";
 import puppeteer from "puppeteer";
 
 const client = new MercadoPagoConfig({

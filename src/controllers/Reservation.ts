@@ -4,7 +4,7 @@ import {
   getCurrentTime,
   getNext1Hour,
   isWithin24Hours,
-} from "../services/addMinutes";
+} from "../services/DateService";
 import {
   ReservationModel,
   ReservationGetModelSuccess,
