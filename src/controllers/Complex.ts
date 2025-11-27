@@ -94,14 +94,15 @@ export const deleteComplexData = async (
     const result = await deleteComplexQuery(id);
 
     return res.status(200).json({
-      message: "Complesx deleted successfully",
-      error: result.rows[0],
+      message: "Complex deleted successfully",
+      data: result.rows[0],
     });
   } catch (error) {
     const err = error as Error;
-    return res
-      .status(500)
-      .json({ message: "An error occurred", error: err.message });
+    return res.status(500).json({
+      message: "An error ocurred",
+      error: err.message,
+    });
   }
 };
 
@@ -110,7 +111,7 @@ export const updateComplexData = async (
   res: Response<complexModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
-  const { name, location, description, image_url } = req.body;
+  const data = req.body;
   try {
     const complex = await getComplexByIdQuery(id);
 
@@ -120,31 +121,14 @@ export const updateComplexData = async (
         .json({ message: "An error ocurred", error: "Complex not found" });
     }
 
-    const fields = { name, location, description, image_url };
-    const keys = Object.keys(fields).filter(
-      (key) => fields[key as keyof typeof fields] !== undefined
-    );
+    const result = await updateComplexQuery(id, data);
 
-    if (keys.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "An error ocurred", error: "No fields to update" });
-    }
-    const setClause = keys.map((key, idx) => `${key} = $${idx + 1}`).join(", ");
-    const values = keys.map((key) => fields[key as keyof typeof fields]);
-
-    const result = await updateComplexQuery(
-      `UPDATE Complex SET ${setClause} WHERE id = $${
-        keys.length + 1
-      } RETURNING *`,
-      [...values, id]
-    );
     res
       .status(200)
       .json({ message: "Complex updated successfully", data: result.rows[0] });
   } catch (error) {
     const err = error as Error;
-    res.status(500).json({ message: "An error occurred", error: err.message });
+    res.status(500).json({ message: "An error ocurred", error: err.message });
   }
 };
 

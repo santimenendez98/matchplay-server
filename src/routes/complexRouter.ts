@@ -48,7 +48,7 @@ complexRouter.post(
 );
 
 // Update a complex
-complexRouter.put(
+complexRouter.patch(
   "/:id",
   param("id")
     .notEmpty()

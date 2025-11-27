@@ -1,7 +1,6 @@
 import { getAccountByEmailQuery } from "../../db/AccountQueries";
 import { verifyPassword } from "../../services/bcrypService";
 import { AccountModel } from "../../types/Account";
-import { AuthModel } from "../../types/Auth";
 import loginController from "../Auth";
 
 jest.mock("../../db/AccountQueries", () => {
@@ -52,6 +51,7 @@ describe("Auth", () => {
     jest.clearAllMocks();
   });
 
+  // Test case: successful login
   test("Should login successfully with valid credentials", async () => {
     // Mock the database response
     (getAccountByEmailQuery as jest.Mock).mockResolvedValue({
@@ -83,6 +83,7 @@ describe("Auth", () => {
     );
   });
 
+  // Test case: invalid credentials
   test("Should return 401 for invalid credentials", async () => {
     // Mock the database response
     (getAccountByEmailQuery as jest.Mock).mockResolvedValue({
@@ -108,6 +109,7 @@ describe("Auth", () => {
     );
   });
 
+  // Test case: database query failure
   test("Should return 500 error when deletion fails", async () => {
     const errorMessage = "Database error";
     (getAccountByEmailQuery as jest.Mock).mockRejectedValue(

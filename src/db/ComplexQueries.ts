@@ -23,5 +23,11 @@ export const createComplexQuery = (complex: complexModel) =>
 export const deleteComplexQuery = (id: number | string) =>
   pool.query(`DELETE FROM Complex WHERE id = $1`, [id]);
 
-export const updateComplexQuery = (query: string, values: any[]) =>
-  pool.query<complexModel[]>(query, values);
+export const updateComplexQuery = (
+  id: string,
+  updateData: Partial<complexModel>
+) =>
+  pool.query<complexModel[]>(
+    `UPDATE Complex SET $1 WHERE id = $2 RETURNING *`,
+    [updateData, id]
+  );

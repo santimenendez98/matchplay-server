@@ -67,7 +67,10 @@ describe("Accounts", () => {
         rows: mockAccounts,
       });
 
-      await getAccounts({} as any, res as any);
+      await getAccounts(
+        { headers: { authorization: "Bearer tokenfalso" } } as any,
+        res as any
+      );
 
       expect(getAllAccountsQuery).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
