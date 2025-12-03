@@ -1,5 +1,5 @@
 import pool from "./connection";
-import { CourtModel } from "../types/Court";
+import { CourtModel, updateCourtModel } from "../types/Court";
 
 export const getAllCourtQuery = () =>
   pool.query<CourtModel>(`SELECT * FROM Court`);
@@ -17,5 +17,8 @@ export const createCourtQuery = (court: CourtModel) =>
 export const deleteCourtQuery = (id: string) =>
   pool.query(`DELETE FROM Court WHERE id = $1`, [id]);
 
-export const updateCourtQuery = (query: string, values: any[]) =>
-  pool.query<CourtModel[]>(query, values);
+export const updateCourtQuery = (id: string, court: updateCourtModel) =>
+  pool.query<CourtModel[]>(
+    `UPDATE Court SET name = $3, image_url = $4 WHERE id = $5 RETURNING *`,
+    [court.name, court.image_url, id]
+  );

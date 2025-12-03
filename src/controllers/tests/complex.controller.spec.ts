@@ -123,6 +123,7 @@ describe("Complex", () => {
 
       await createComplexData({ body: mockComplex[0] } as any, res as any);
 
+      expect(getAccountAdminQuery).toHaveBeenCalledWith(mockAdmin[0].id);
       expect(createComplexQuery).toHaveBeenCalledWith(mockComplex[0]);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({

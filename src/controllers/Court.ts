@@ -13,6 +13,7 @@ import {
   getCourtByIdQuery,
   updateCourtQuery,
 } from "../db/CourtQueries";
+import { getComplexByIdQuery } from "../db/ComplexQueries";
 
 export const getCourts = async (
   req: Request,
@@ -23,7 +24,7 @@ export const getCourts = async (
     res.status(200).json({ message: "Court List", data: courts.rows });
   } catch (error) {
     const err = error as Error;
-    res.status(500).json({ message: "An error occurred", error: err.message });
+    res.status(500).json({ message: "An error ocurred", error: err.message });
   }
 };
 
@@ -33,6 +34,15 @@ export const createCourt = async (
 ) => {
   const { complex_id, sport_id, name, image_url } = req.body;
   try {
+    const complex = await getComplexByIdQuery(complex_id);
+
+    if (complex.rowCount === 0) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Complex not found",
+      });
+    }
+
     const newCourt = await createCourtQuery({
       complex_id,
       sport_id,
@@ -54,12 +64,16 @@ export const deleteCourt = async (
 ) => {
   const { id } = req.params;
   try {
-    const result = await deleteCourtQuery(id);
-    if (result.rowCount === 0) {
+    const court = await getCourtByIdQuery(id);
+
+    if (court.rows.length === 0) {
       return res
         .status(404)
         .json({ message: "An error ocurred", error: "Court not found" });
     }
+
+    await deleteCourtQuery(id);
+
     res.status(200).json({
       message: "An error ocurred",
       error: "Court deleted successfully",
@@ -70,12 +84,12 @@ export const deleteCourt = async (
   }
 };
 
-export const updateAccount = async (
+export const updateCourt = async (
   req: Request<paramsModels, {}, updateCourtModel>,
   res: Response<CourtModelSuccess | errorResponseModel>
 ) => {
   const { id } = req.params;
-  const { name, image_url } = req.body;
+  const updateData = req.body;
   try {
     const court = await getCourtByIdQuery(id);
 
@@ -85,25 +99,8 @@ export const updateAccount = async (
         .json({ message: "An error ocurred", error: "Court not found" });
     }
 
-    const fields = { name, image_url };
-    const keys = Object.keys(fields).filter(
-      (key) => fields[key as keyof typeof fields] !== undefined
-    );
+    const result = await updateCourtQuery(id, updateData);
 
-    if (keys.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "An error ocurred", error: "No fields to update" });
-    }
-    const setClause = keys.map((key, idx) => `${key} = $${idx + 1}`).join(", ");
-    const values = keys.map((key) => fields[key as keyof typeof fields]);
-
-    const result = await updateCourtQuery(
-      `UPDATE Court SET ${setClause} WHERE id = $${
-        keys.length + 1
-      } RETURNING *`,
-      [...values, id]
-    );
     res
       .status(200)
       .json({ message: "Court updated successfully", data: result.rows[0] });
@@ -117,5 +114,5 @@ export default {
   getCourts,
   createCourt,
   deleteCourt,
-  updateAccount,
+  updateCourt,
 };

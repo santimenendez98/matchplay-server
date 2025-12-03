@@ -3,7 +3,7 @@ import {
   getCourts,
   createCourt,
   deleteCourt,
-  updateAccount,
+  updateCourt,
 } from "../controllers/Court";
 import { authMiddleware, rolMiddleware } from "../middleware";
 import { body, param } from "express-validator";
@@ -57,7 +57,7 @@ courtRouter.delete(
 );
 
 // Update an existing court
-courtRouter.put(
+courtRouter.patch(
   "/:id",
   param("id")
     .notEmpty()
@@ -72,7 +72,7 @@ courtRouter.put(
   handleValidationErrors,
   authMiddleware,
   rolMiddleware(["admin"]),
-  updateAccount
+  updateCourt
 );
 
 export default courtRouter;
