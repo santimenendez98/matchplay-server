@@ -9,6 +9,11 @@ const config: Config = {
   transform: {
     "^.+\\.ts$": ["ts-jest", { isolatedModules: true }],
   },
+
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+  },
+
   clearMocks: true,
   verbose: true,
 };

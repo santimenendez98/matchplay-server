@@ -41,9 +41,7 @@ export const getMatches = async (
     res.status(200).json({ message: "Match List", data: result.rows });
   } catch (error) {
     const err = error as Error;
-    res
-      .status(500)
-      .json({ message: "Error fetching matches", error: err.message });
+    res.status(500).json({ message: "An error ocurred", error: err.message });
   }
 };
 
@@ -69,7 +67,7 @@ export const getMatchByCourt = async (
     });
   } catch (error) {
     const err = error as Error;
-    res.status(500).json({ message: "An error occurred", error: err.message });
+    res.status(500).json({ message: "An error ocurred", error: err.message });
   }
 };
 
@@ -79,7 +77,7 @@ export const deleteMatch = async (
 ) => {
   try {
     const { id } = req.params;
-    const result = await deleteMatchQuery(id);
+    const result = await getMatchByIdQuery(id);
 
     if (result.rowCount === 0) {
       return res
@@ -87,12 +85,14 @@ export const deleteMatch = async (
         .json({ message: "An error ocurred", error: "Match not found" });
     }
 
+    await deleteMatchQuery(id);
+
     res
       .status(200)
       .json({ message: "Match deleted successfully", data: result.rows[0] });
   } catch (error) {
     const err = error as Error;
-    res.status(500).json({ message: "An error occurred", error: err.message });
+    res.status(500).json({ message: "An error ocurred", error: err.message });
   }
 };
 
@@ -146,7 +146,7 @@ export const joinMatch = async (
     if (match.rows[0].status === "completed") {
       return res.status(400).json({
         message: "An error ocurred",
-        error: "Cannot join match, maximum players reached",
+        error: "Match is already completed",
       });
     } else {
       // Increment the current players count in the match
@@ -173,7 +173,7 @@ export const joinMatch = async (
     }
   } catch (error) {
     const err = error as Error;
-    res.status(500).json({ message: "An error occurred", error: err.message });
+    res.status(500).json({ message: "An error ocurred", error: err.message });
   }
 };
 
@@ -184,11 +184,19 @@ export const leaveMatch = async (
   try {
     const { match_id, player_id } = req.body;
     const match = await getMatchByIdQuery(match_id);
+    const player = await getAccountByIdQuery(player_id);
 
     if (match.rowCount === 0) {
       return res
         .status(404)
         .json({ message: "An error ocurred", error: "Match not found" });
+    }
+
+    if (player.rowCount === 0) {
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "Account not found",
+      });
     }
 
     if (match.rows[0].creator_id === player_id) {
