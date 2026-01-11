@@ -10,7 +10,7 @@ import {
   ReservationGetModelSuccess,
   ReservationModelSuccess,
 } from "../types/Reservation";
-import { errorResponseModel } from "../types";
+import { errorResponseModel, paramsModels } from "../types";
 import {
   getAllReservationsQuery,
   createReservationQuery,
@@ -71,6 +71,32 @@ export const getReservations = async (
   try {
     const result = await getAllReservationsQuery();
     res.status(200).json({ message: "Reservation List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ message: "Error fetching reservations", error: err.message });
+  }
+};
+
+// Get reservation by id
+export const getReservationById = async (
+  req: Request<paramsModels, {}, {}>,
+  res: Response<ReservationGetModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { id } = req.params;
+    const reservation = await getReservationWithIdQuery(id);
+
+    if (reservation.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Reservation not found" });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Reservation found", data: reservation.rows[0] });
   } catch (error) {
     const err = error as Error;
     res
@@ -509,6 +535,7 @@ export const cancelReservationRequest = async (
 
 export default {
   getReservations,
+  getReservationById,
   createReservation,
   cancelReservation,
   cancelReservationRequest,

@@ -5,9 +5,12 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "npm test && nodemon src/index.ts",
+    "dev": "nodemon src/index.ts",
     "start": "node dist/index.js",
     "test": "jest"
+  },
+  "_moduleAliases": {
+    "@": "dist"
   },
   "author": "",
   "license": "ISC",
@@ -35,6 +38,7 @@
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
     "mercadopago": "^2.8.0",
+    "module-alias": "^2.2.3",
     "node-cron": "^4.2.1",
     "pg": "^8.16.3",
     "puppeteer": "^24.19.0",

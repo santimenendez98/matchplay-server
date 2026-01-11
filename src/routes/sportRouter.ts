@@ -24,7 +24,6 @@ sportRouter.post(
     .withMessage("Max players must be a number"),
   handleValidationErrors,
   authMiddleware,
-  rolMiddleware(["creator"]),
   createSport
 );
 

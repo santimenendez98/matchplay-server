@@ -1,19 +1,16 @@
-import { Request, Response } from "express";
-import {
-  createPayment,
-  generateProofPayment,
-  getPayment,
-} from "../services/mercadoPago";
+import e, { Request, Response } from "express";
+import { createPayment } from "../services/mercadoPago";
 import {
   confirmTransferBody,
   historyPaymentModel,
   PaymentCashBody,
   paymentDataBody,
   paymentResponse,
+  PaymentDebitResponse,
   PaymentTransferBody,
   proofBodyModel,
-  proofPaymentData,
   refundBody,
+  MatchPlayerModel,
 } from "../types/Payment";
 import {
   getReservationWithIdQuery,
@@ -40,163 +37,118 @@ import {
 import { getCurrentTime } from "../services/DateService";
 import { errorResponseModel, successResponseModel } from "../types";
 import { verifyCloudinaryFile } from "../services/cloudinary";
+import {
+  processMercadoPagoWebhook,
+  generateProofPayment,
+  verifyMercadoPagoSignature,
+} from "../services/mercadoPago";
+import { emitPayment } from "../services/webSocket";
 
 // Generate debit payment
 export const createDebitPayment = async (
   req: Request<{}, {}, paymentDataBody>,
-  res: Response
+  res: Response<errorResponseModel | PaymentDebitResponse>
 ) => {
   try {
     const { reservation_id, email } = req.body;
+
     const reservation = await getReservationWithIdQuery(reservation_id);
     const account = await getAccountByEmailQuery(email);
-    const today = getCurrentTime();
 
-    // Check if reservation exists
     if (reservation.rows.length === 0) {
-      return res.status(404).json({ error: "Reservation not found" });
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Reservation not found" });
     }
 
     if (account.rows.length === 0) {
-      return res.status(404).json({
-        error: "Account not found",
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Account not found" });
+    }
+
+    const paid = await getPaymentByReservationAndAccount(
+      reservation_id,
+      account.rows[0]?.id!
+    );
+
+    if (paid.rows.length > 0) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "The reservation has already been paid",
       });
     }
 
-    // If reservation is a match
-    if (reservation.rows[0].is_match) {
-      const match = await getMatchByReservationQuery(reservation_id);
-
-      if (match.rows.length === 0) {
-        return res.status(404).json({ error: "Match not found" });
-      }
-
-      if (match.rows[0].id && account.rows[0].id) {
-        //Get player by match
-        const player_match = await getPlayerJoinedByMatchQuery(
-          account.rows[0].id,
-          match.rows[0].id
-        );
-
-        const payment = await getPaymentByReservationAndAccount(
-          reservation_id,
-          account.rows[0].id
-        );
-
-        // Check if match is already confirmed
-        if (match.rows[0].status !== "completed") {
-          return res.status(400).json({
-            error: `Match is already ${match.rows[0].status}`,
-          });
-        }
-
-        if (player_match.rows.length === 0) {
-          return res
-            .status(400)
-            .json({ error: "No found this player on match" });
-        }
-
-        // Check if player already paid
-        if (
-          player_match.rows[0].payment_method !== "cash" &&
-          payment.rows.length > 0
-        ) {
-          return res.status(400).json({
-            error: "The player has already paid for this match",
-          });
-        }
-
-        // Create Payment
-        const paymentRequest = await createPayment(req.body);
-
-        if (!paymentRequest) {
-          return res.status(400).json({ error: "Payment creation failed" });
-        }
-
-        if (paymentRequest.id) {
-          // Update payment method in history
-          await updatePaymentMethod(
-            player_match.rows[0].match_id,
-            player_match.rows[0].player_id,
-            "debit_card"
-          );
-
-          // Create History Payment
-
-          console.log(paymentRequest);
-
-          await createPaymentHistoryQuery({
-            account_id: account.rows[0].id,
-            reservation_id: reservation_id,
-            total_amount: match.rows[0].price_per_player,
-            payment_method: "debit_card",
-            payment_status: "completed",
-            payment_date: today,
-            paid_by: account.rows[0].id,
-            mp_payment_id: paymentRequest.id.toString(),
-          });
-
-          return res.status(200).json({
-            message: "Payment for match confirmed",
-            payment: paymentRequest,
-          });
-        }
-      }
+    if (
+      reservation.rows[0].is_match &&
+      reservation.rows[0].status !== "confirmed"
+    ) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "The match reservation must be confirmed before payment",
+      });
     }
 
-    // If reservation is not a match
-    if (account.rows[0].id) {
-      // Check if reservation is already confirmed
-      if (reservation.rows[0].status !== "pending") {
-        return res.status(400).json({
-          error: `Reservation is already ${reservation.rows[0].status}`,
-        });
-      }
+    const preference = await createPayment(
+      reservation_id,
+      account.rows[0]?.id!
+    );
 
-      // Check if reservation has already been paid
-      const payment = await getPaymentByReservationAndAccount(
-        reservation_id,
-        account.rows[0].id
-      );
-
-      if (payment.rows.length > 0) {
-        return res.status(400).json({
-          error: "The reservation has already been paid",
-        });
-      }
-
-      const paymentRequest = await createPayment(req.body);
-
-      // Check if payment was created successfully
-      if (!paymentRequest) {
-        return res.status(400).json({ error: "Payment creation failed" });
-      }
-
-      if (paymentRequest.id && account.rows[0].id) {
-        await createPaymentHistoryQuery({
-          account_id: account.rows[0].id,
-          reservation_id: reservation_id,
-          total_amount: reservation.rows[0].price,
-          payment_method: "debit_card",
-          payment_status: "completed",
-          payment_date: today,
-          paid_by: account.rows[0].id,
-          mp_payment_id: paymentRequest.id.toString(),
-        });
-
-        await updateReservationStatusQuery(reservation_id, "confirmed");
-
-        return res.status(200).json({
-          message: "Payment for reservation confirmed",
-          payment: paymentRequest,
-        });
-      }
-    }
+    return res.status(200).json({
+      message: "Payment created successfully",
+      data: { url: preference.id! },
+    });
   } catch (error) {
     const err = error as Error;
     return res
       .status(400)
-      .json({ error: "Error creating payment", message: err.message });
+      .json({ error: "An error ocurred", message: err.message });
+  }
+};
+
+// Notification webhook from MercadoPago
+export const mercadoPagoWebhook = async (
+  req: Request,
+  res: Response<errorResponseModel | "OK">
+) => {
+  try {
+    const signature = req.headers["x-signature"] as string;
+    const requestId = req.headers["x-request-id"] as string;
+    const rawBody = (req as any).rawBody;
+
+    if (!signature || !requestId || !rawBody) {
+      return res.status(401).json({
+        error: "An error ocurred",
+        message: "Missing signature headers",
+      });
+    }
+
+    const isValid = verifyMercadoPagoSignature(
+      signature,
+      requestId,
+      rawBody,
+      process.env.MERCADO_PAGO_WEBHOOK_SECRET || ""
+    );
+
+    if (!isValid) {
+      return res
+        .status(401)
+        .json({ error: "An error ocurred", message: "Invalid signature" });
+    }
+
+    const { type, data } = req.body;
+
+    if (!type || !data?.id) {
+      return res
+        .status(400)
+        .json({ error: "An error ocurred", message: "Invalid payload" });
+    }
+
+    await processMercadoPagoWebhook(type, data);
+    res.status(200).send("OK");
+  } catch (error) {
+    const err = error as Error;
+    res.status(400).json({ error: "An error ocurred", message: err.message });
   }
 };
 
@@ -206,30 +158,17 @@ export const generateProof = async (
   res: Response<Buffer | errorResponseModel>
 ) => {
   try {
-    const { mp_payment_id } = req.body;
+    const { payment_id } = req.body;
 
-    const searchPayment = await getPayment(mp_payment_id);
+    const payment = await getPaymentByIdQuery(payment_id);
 
-    if (!searchPayment) {
+    if (payment.rows.length === 0) {
       return res
         .status(404)
         .json({ message: "An error ocurred", error: "Payment not found" });
     }
 
-    const data: proofPaymentData = {
-      mp_payment_id: searchPayment.id!,
-      status: searchPayment.status!,
-      date: new Date(searchPayment.date_approved!).toLocaleDateString(),
-      amount: searchPayment.transaction_amount!,
-      description: searchPayment.description!,
-      cardholder_name: searchPayment.card?.cardholder?.name || "N/A",
-      email: searchPayment.payer?.email!,
-      payment_method: searchPayment.payment_method?.id!,
-      last_four_digits: searchPayment.card?.last_four_digits || "N/A",
-      autorization_code: searchPayment.authorization_code!,
-    };
-
-    const pdf = await generateProofPayment(data);
+    const pdf = await generateProofPayment(payment.rows[0]);
 
     if (!pdf) {
       return res
@@ -241,7 +180,7 @@ export const generateProof = async (
       .status(200)
       .set({
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=proof_of_payment_${mp_payment_id}.pdf`,
+        "Content-Disposition": `attachment; filename=proof_of_payment_${payment_id}.pdf`,
         "Content-Length": pdf.length,
       })
       .send(pdf);
@@ -351,6 +290,19 @@ export const createBankTransfer = async (
 
       const payment = await createPaymentHistoryQuery(historyPaymentData);
 
+      if (payment.rows.length === 0) {
+        return res.status(500).json({
+          message: "An error ocurred",
+          error: "Failed to create payment history",
+        });
+      }
+
+      emitPayment(
+        payment.rows[0].reservation_id,
+        payment.rows[0].id!,
+        "pending"
+      );
+
       return res.status(201).json({
         message: "Payment created successfully",
         data: payment.rows[0],
@@ -361,7 +313,7 @@ export const createBankTransfer = async (
 
     return res
       .status(400)
-      .json({ error: "Error creating payment", message: err.message });
+      .json({ error: "An error ocurred", message: err.message });
   }
 };
 
@@ -404,11 +356,14 @@ export const confirmTransferPayment = async (
       }
 
       if (match.rows[0].id) {
-        await updatePaymentMethod(
-          match.rows[0].id,
-          payment.rows[0].paid_by,
-          "bank_transfer"
-        );
+        const data: MatchPlayerModel = {
+          match_id: match.rows[0].id,
+          player_id: payment.rows[0].paid_by,
+          payment_method: "bank_transfer",
+          payment_status: status,
+        };
+
+        await updatePaymentMethod(data);
 
         await updatePreReserveStatusQuery(reservation.rows[0].id, "completed");
       }
@@ -423,13 +378,13 @@ export const confirmTransferPayment = async (
     await updatePaymentStatusQuery(payment_id, status);
 
     return res.status(201).json({
-      message: "Payment updated success",
+      message: "Payment confirmed successfully",
     });
   } catch (error) {
     const err = error as Error;
     return res
       .status(400)
-      .json({ error: "Error creating confirmation", message: err.message });
+      .json({ error: "An error ocurred", message: err.message });
   }
 };
 
@@ -485,17 +440,14 @@ export const createCashPayment = async (
         );
 
         if (player_match.rows.length === 0) {
-          return res.status(400).json({
+          return res.status(404).json({
             message: "An error ocurred",
-            error: "No found this player on match",
+            error: "Player not found in match",
           });
         }
 
         // Check if player already paid
-        if (
-          player_match.rows[0].payment_method !== "cash" ||
-          payment.rows.length > 0
-        ) {
+        if (payment.rows.length > 0) {
           return res.status(400).json({
             message: "An error ocurred",
             error: "The player has already paid for this match",
@@ -503,25 +455,31 @@ export const createCashPayment = async (
         }
 
         // Create History Payment
-        await createPaymentHistoryQuery({
+        const cashPayment = await createPaymentHistoryQuery({
           account_id: account.rows[0].id,
           reservation_id: reservation_id,
           total_amount: match.rows[0].price_per_player,
           payment_method: "cash",
-          payment_status: "completed",
+          payment_status: "pending",
           payment_date: today,
           paid_by: account.rows[0].id,
         });
 
         // Update payment method in history
-        await updatePaymentMethod(
-          player_match.rows[0].match_id,
-          player_match.rows[0].player_id,
-          "cash"
-        );
+
+        const data: MatchPlayerModel = {
+          match_id: match.rows[0].id,
+          player_id: player_match.rows[0].player_id,
+          payment_method: "cash",
+          payment_status: "pending",
+        };
+
+        await updatePaymentMethod(data);
+
+        emitPayment(reservation_id, cashPayment.rows[0]?.id!, "pending");
 
         return res.status(200).json({
-          message: "Payment for match confirmed",
+          message: "Cash payment created successfully",
         });
       }
     }
@@ -546,25 +504,27 @@ export const createCashPayment = async (
         reservation_id: reservation_id,
         total_amount: reservation.rows[0].price,
         payment_method: "cash",
-        payment_status: "completed",
+        payment_status: "pending",
         payment_date: today,
         paid_by: account.rows[0].id,
       });
       await updateReservationStatusQuery(reservation_id, "confirmed");
 
+      emitPayment(reservation_id, payment.rows[0]?.id!, "pending");
+
       return res.status(200).json({
-        message: "Payment for reservation confirmed",
+        message: "Cash payment created successfully",
       });
     }
   } catch (error) {
     const err = error as Error;
     return res
       .status(400)
-      .json({ error: "Error creating payment", message: err.message });
+      .json({ error: "An error ocurred", message: err.message });
   }
 };
 
-// Refund Payment
+// Refund Payment (** ONLY TEST **)
 export const refundPayment = async (
   req: Request<{}, {}, refundBody>,
   res: Response<errorResponseModel | successResponseModel>

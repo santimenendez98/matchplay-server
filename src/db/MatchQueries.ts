@@ -1,5 +1,6 @@
 import pool from "./connection";
 import { JoinMatchModel, MatchModel, SendMessageModel } from "../types/Match";
+import { MatchPlayerModel } from "src/types/Payment";
 
 /*
 ------------ MATCH ---------------
@@ -141,14 +142,10 @@ export const getAllPlayersByMatchQuery = async (match_id: string) => {
   );
 };
 
-export const updatePaymentMethod = async (
-  match_id: string,
-  player_id: string,
-  payment_method: string
-) => {
+export const updatePaymentMethod = async (data: MatchPlayerModel) => {
   return pool.query(
     `UPDATE MatchPlayer SET payment_method = $3 WHERE match_id = $1 AND player_id = $2`,
-    [match_id, player_id, payment_method]
+    [data.match_id, data.player_id, data.payment_method]
   );
 };
 

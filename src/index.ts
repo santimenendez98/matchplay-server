@@ -31,7 +31,13 @@ app.use(
   })
 );
 
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req: any, res, buffer) => {
+      req.rawBody = buffer.toString();
+    },
+  })
+);
 
 // Rutas
 app.use("/api", router);
@@ -39,7 +45,7 @@ app.use("/api", router);
 // Socket.IO
 export const io = new Server(server, {
   cors: {
-    origin: origin,
+    origin: true,
     methods: ["GET", "POST"],
   },
 });

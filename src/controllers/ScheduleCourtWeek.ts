@@ -23,6 +23,7 @@ import {
   existingOneOverlappingQuery,
 } from "../db/ScheduleCourtWeekQueries";
 import { createWeekPriceQuery } from "../db/ScheduleWeekPriceQueries";
+import { getCourtByIdQuery } from "../db/CourtQueries";
 
 export const getScheduleCourtWeek = async (
   req: Request,
@@ -53,6 +54,14 @@ export const createScheduleCourtWeek = async (
       halfprice,
     } = req.body;
     const today = new Date();
+    const court = await getCourtByIdQuery(court_id);
+
+    if (court.rows.length === 0) {
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "Court not found",
+      });
+    }
 
     const overlappingSchedules = await overlappingSchedulesQuery(
       court_id,

@@ -25,6 +25,7 @@ import {
 import { getAccountByIdQuery } from "../db/AccountQueries";
 import {
   deleteReservationQuery,
+  getReservationWithIdQuery,
   updatePreReserveStatusQuery,
   updateReservationStatusQuery,
 } from "../db/ReservationQueries";
@@ -77,19 +78,34 @@ export const deleteMatch = async (
 ) => {
   try {
     const { id } = req.params;
-    const result = await getMatchByIdQuery(id);
+    const match = await getMatchByIdQuery(id);
+    const reservation = await getReservationWithIdQuery(id);
 
-    if (result.rowCount === 0) {
+    if (match.rowCount === 0) {
       return res
         .status(404)
         .json({ message: "An error ocurred", error: "Match not found" });
     }
 
+    if (reservation.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Reservation not found" });
+    }
+
+    if (match.rows[0].status === "completed") {
+      return res
+        .status(402)
+        .json({ message: "An error ocurred", error: "Cannot delete match" });
+    }
+
     await deleteMatchQuery(id);
+    await updateStatusMatchQuery(id, "cancelled");
+    await updateReservationStatusQuery(reservation.rows[0].id!, "cancelled");
 
     res
       .status(200)
-      .json({ message: "Match deleted successfully", data: result.rows[0] });
+      .json({ message: "Match deleted successfully", data: match.rows[0] });
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ message: "An error ocurred", error: err.message });
@@ -121,7 +137,7 @@ export const joinMatch = async (
         .json({ message: "An error ocurred", error: "Player not found" });
     }
 
-    if (player.rows[0].account_type == "admin") {
+    if (player.rows[0].account_type === "admin") {
       return res.status(400).json({
         message: "An error ocurred",
         error: "Admins cannot join matches",

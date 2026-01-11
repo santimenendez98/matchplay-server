@@ -11,6 +11,7 @@ export const webSocketHandler = (socket: Socket) => {
   unsubscribeNotificationCourt(socket);
   chatHandler(socket);
   handleAdminNotification(socket);
+  subscribeReservationPayment(socket);
 
   socket.on("disconnect", () => {
     console.log(`Client disconnected: ${socket.id}`);
@@ -67,6 +68,7 @@ export const emitNotificationCancelRequest = (reservation_id: string) => {
   );
 };
 
+// Chat handler for managing match chat events
 export const chatHandler = (socket: Socket) => {
   // Handle joining a match
   socket.on("joinMatch", (match_id: string) => {
@@ -118,13 +120,28 @@ export const leaveMatchRoom = (player_id: string, match_id: string) => {
   return roomName;
 };
 
-// Emit payment status
+// Subscribe to reservation payment updates
+export const subscribeReservationPayment = (socket: Socket) => {
+  socket.on("subscribeReservationPayment", (reservation_id: string) => {
+    const roomName = `reservation_${reservation_id}`;
+    socket.join(roomName);
+    console.log(`Client subscribed to payment updates: ${roomName}`);
+  });
+};
 
-export const emitPaymentStatus = (id: number, external_reference: string) => {
-  io.emit("payment_success", {
-    id,
-    external_reference,
+// Emit payment notification
+export const emitPayment = (
+  reservation_id: string,
+  payment_id: string,
+  status: string
+) => {
+  const roomName = `reservation_${reservation_id}`;
+
+  io.to(roomName).emit("payment", {
+    reservation_id,
+    payment_id,
+    status,
   });
 
-  console.log("Payment status emitted success");
+  console.log(`Payment notification sent to room: ${roomName}`);
 };

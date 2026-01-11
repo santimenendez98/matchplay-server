@@ -43,7 +43,6 @@ complexRouter.post(
     .withMessage("Image URL must be a string"),
   handleValidationErrors,
   authMiddleware,
-  rolMiddleware(["creator"]),
   createComplexData
 );
 

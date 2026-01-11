@@ -6,10 +6,10 @@ import {
   createBankTransfer,
   createCashPayment,
   createDebitPayment,
-  generateProof,
   refundPayment,
 } from "../controllers/Payment";
 import { authMiddleware, rolMiddleware } from "../middleware";
+import { mercadoPagoWebhook, generateProof } from "../controllers/Payment";
 
 export const paymentRouter = Router();
 
@@ -21,41 +21,19 @@ paymentRouter.post(
     .withMessage("Reservation ID is required")
     .isString()
     .withMessage("Reservation ID must be a string"),
-  body("amount")
-    .notEmpty()
-    .withMessage("Amount is required")
-    .isNumeric()
-    .withMessage("Amount must be a number"),
-  body("payment_method_id")
-    .notEmpty()
-    .withMessage("Payment method ID is required")
-    .isString()
-    .withMessage("Payment method ID must be a string"),
-  body("token")
-    .notEmpty()
-    .withMessage("Token is required")
-    .isString()
-    .withMessage("Token must be a string"),
   body("email")
     .notEmpty()
     .withMessage("Email is required")
     .isEmail()
     .withMessage("Email must be a valid email"),
-  body("identification_type")
-    .notEmpty()
-    .withMessage("Identification type is required")
-    .isString()
-    .withMessage("Identification type must be a string"),
-  body("identification_number")
-    .notEmpty()
-    .withMessage("Identification number is required")
-    .isString()
-    .withMessage("Identification number must be a string"),
   authMiddleware,
   rolMiddleware(["user"]),
   handleValidationErrors,
   createDebitPayment
 );
+
+// Notification webhook from MercadoPago
+paymentRouter.post("/webhook", mercadoPagoWebhook);
 
 // Create bank transfer payment
 paymentRouter.post(
@@ -103,7 +81,7 @@ paymentRouter.post(
 // Generate Proof payment
 paymentRouter.post(
   "/proof",
-  body("mp_payment_id")
+  body("payment_id")
     .notEmpty()
     .withMessage("Payment id is required")
     .isString()

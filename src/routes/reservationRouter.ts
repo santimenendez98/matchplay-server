@@ -5,6 +5,7 @@ import {
   cancelReservation,
   cancelReservationRequest,
   cancelPreReservation,
+  getReservationById,
 } from "../controllers/Reservation";
 import { authMiddleware, rolMiddleware } from "../middleware";
 import { body } from "express-validator";
@@ -14,6 +15,9 @@ export const reservationRouter = Router();
 
 //Get request
 reservationRouter.get("/", authMiddleware, getReservations);
+
+//Get reservation by id
+reservationRouter.get("/:id", authMiddleware, getReservationById);
 
 //Create a reservation
 reservationRouter.post(

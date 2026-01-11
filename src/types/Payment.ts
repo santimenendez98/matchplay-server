@@ -1,12 +1,6 @@
 export interface paymentDataBody {
   reservation_id: string;
-  token: string;
-  amount: number;
-  payment_method_id: string;
-  issuer_id: number;
   email: string;
-  identification_type: string;
-  identification_number: string;
 }
 
 export interface historyPaymentModel {
@@ -14,8 +8,8 @@ export interface historyPaymentModel {
   account_id: string;
   reservation_id: string;
   total_amount: number;
-  payment_method: "debit_card" | "cash" | "bank_transfer";
-  payment_status: "pending" | "completed" | "failed";
+  payment_method: "visa" | "master" | "cash" | "bank_transfer";
+  payment_status: "pending" | "completed" | "failed" | "cancelled";
   payment_date: string;
   paid_by: string;
   mp_payment_id?: string;
@@ -32,10 +26,19 @@ export interface proofPaymentData {
   email: string;
   payment_method: string;
   last_four_digits: string;
-  autorization_code: string;
+  authorization_code: string;
 }
 
-export type proofBodyModel = Pick<proofPaymentData, "mp_payment_id">;
+export type MatchPlayerModel = Pick<
+  historyPaymentModel,
+  "payment_method" | "payment_status"
+> & { match_id: string; player_id: string };
+
+export type paymentMethod = "visa" | "master" | "cash" | "bank_transfer";
+
+export interface proofBodyModel {
+  payment_id: string;
+}
 
 export interface PaymentTransferBody {
   reservation_id: string;
@@ -46,6 +49,13 @@ export interface PaymentTransferBody {
 export interface confirmTransferBody {
   payment_id: string;
   status: "completed" | "failed";
+}
+
+export interface PaymentDebitResponse {
+  message: string;
+  data: {
+    url: string;
+  };
 }
 
 export interface paymentResponse {

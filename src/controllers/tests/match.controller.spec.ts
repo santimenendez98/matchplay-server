@@ -1,4 +1,4 @@
-import { MatchModel } from "@/types/Match";
+import { MatchModel } from "../../types/Match";
 import {
   deleteMatchQuery,
   getCantPlayersByScheduleQuery,
@@ -9,7 +9,8 @@ import {
   joinMatchQuery,
   quitMatchQuery,
   updatePlayersCountQuery,
-} from "@/db/MatchQueries";
+  updateStatusMatchQuery,
+} from "../../db/MatchQueries";
 import {
   deleteMatch,
   getMatchByCourt,
@@ -17,31 +18,31 @@ import {
   joinMatch,
   leaveMatch,
 } from "../Match";
-import { CourtModel } from "@/types/Court";
-import { getCourtByIdQuery } from "@/db/CourtQueries";
-import { getAccountByIdQuery } from "@/db/AccountQueries";
-import { AccountModel } from "@/types/Account";
+import { CourtModel } from "../../types/Court";
+import { getCourtByIdQuery } from "../../db/CourtQueries";
+import { getAccountByIdQuery } from "../../db/AccountQueries";
+import { AccountModel } from "../../types/Account";
 import {
-  deleteReservationQuery,
-  updatePreReserveStatusQuery,
+  getReservationWithIdQuery,
   updateReservationStatusQuery,
-} from "@/db/ReservationQueries";
+} from "../../db/ReservationQueries";
+import { ReservationModel } from "src/types/Reservation";
 
-jest.mock("@/services/webSocket", () => {
+jest.mock("../../services/webSocket", () => {
   return {
     __esModule: true,
     emitMessageToMatch: jest.fn(),
   };
 });
 
-jest.mock("@/services/DateService", () => {
+jest.mock("../../services/DateService", () => {
   return {
     __esModule: true,
     getCurrentTime: jest.fn(),
   };
 });
 
-jest.mock("@/db/MatchQueries", () => {
+jest.mock("../../db/MatchQueries", () => {
   return {
     __esModule: true,
     getMatchesQuery: jest.fn(),
@@ -53,29 +54,29 @@ jest.mock("@/db/MatchQueries", () => {
     updatePlayersCountQuery: jest.fn(),
     joinMatchQuery: jest.fn(),
     quitMatchQuery: jest.fn(),
+    updateStatusMatchQuery: jest.fn(),
   };
 });
 
-jest.mock("@/db/AccountQueries", () => {
+jest.mock("../../db/AccountQueries", () => {
   return {
     __esModule: true,
     getAccountByIdQuery: jest.fn(),
   };
 });
 
-jest.mock("@/db/CourtQueries", () => {
+jest.mock("../../db/CourtQueries", () => {
   return {
     __esModule: true,
     getCourtByIdQuery: jest.fn(),
   };
 });
 
-jest.mock("@/db/ReservationQueries", () => {
+jest.mock("../../db/ReservationQueries", () => {
   return {
     __esModule: true,
-    deleteReservationQuery: jest.fn(),
-    updatePreReserveStatusQuery: jest.fn(),
     updateReservationStatusQuery: jest.fn(),
+    getReservationWithIdQuery: jest.fn(),
   };
 });
 
@@ -120,6 +121,21 @@ describe("Match", () => {
       birthdate: "1990-01-01",
       phone: "0987654321",
       account_type: "admin",
+    },
+  ];
+
+  const mockReservation: ReservationModel[] = [
+    {
+      id: "1",
+      account_id: "1",
+      price: 60,
+      start_time: "2025-01-01 10:00:00",
+      end_time: "2025-01-01 12:00:00",
+      time_reserved: 1,
+      reservation_date: "2025-01-01",
+      is_match: true,
+      status: "pending",
+      schedule_id: "1",
     },
   ];
 
@@ -236,14 +252,32 @@ describe("Match", () => {
         rows: [mockMatches[0]],
       });
 
+      (getReservationWithIdQuery as jest.Mock).mockResolvedValue({
+        rows: [mockReservation[0]],
+      });
+
       (deleteMatchQuery as jest.Mock).mockResolvedValue({
         rows: [mockMatches[0]],
+      });
+
+      (updateStatusMatchQuery as jest.Mock).mockResolvedValue({
+        rows: [{ ...mockMatches[0], status: "cancelled" }],
+      });
+
+      (updateReservationStatusQuery as jest.Mock).mockResolvedValue({
+        rows: [{ ...mockReservation[0], status: "cancelled" }],
       });
 
       await deleteMatch({ params: { id: "1" } } as any, res as any);
 
       expect(getMatchByIdQuery).toHaveBeenCalledWith("1");
+      expect(getReservationWithIdQuery).toHaveBeenCalledWith("1");
       expect(deleteMatchQuery).toHaveBeenCalledWith("1");
+      expect(updateStatusMatchQuery).toHaveBeenCalledWith("1", "cancelled");
+      expect(updateReservationStatusQuery).toHaveBeenCalledWith(
+        mockReservation[0].id!,
+        "cancelled"
+      );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         message: "Match deleted successfully",

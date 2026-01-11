@@ -135,7 +135,7 @@ CREATE TABLE Payment (
   user_id INTEGER NOT NULL REFERENCES Account(id),
   reservation_id INTEGER NOT NULL REFERENCES Reservation(id),
   total_amount DECIMAL(10, 2) NOT NULL,
-  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('debit_card', 'cash', 'bank_transfer')),
+  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('visa', 'master', 'cash', 'bank_transfer')),
   payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN ('pending', 'completed', 'failed', 'cancelled')),
   payment_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   paid_by INTEGER NOT NULL REFERENCES Account(id),
@@ -147,7 +147,8 @@ CREATE TABLE MatchPlayer (
   match_id INTEGER NOT NULL REFERENCES Match(id),
   player_id INTEGER NOT NULL REFERENCES Account(id),
   joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('debit_card', 'cash', 'bank_transfer')) DEFAULT 'cash',
+  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('visa', 'master', 'cash', 'bank_transfer')) DEFAULT 'cash',
+  payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN ('pending', 'completed', 'failed', 'cancelled')) DEFAULT 'pending',
   PRIMARY KEY (match_id, player_id)
 );
 
