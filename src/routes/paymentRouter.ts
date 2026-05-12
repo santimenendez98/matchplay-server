@@ -7,6 +7,8 @@ import {
   createCashPayment,
   createDebitPayment,
   generateProof,
+  getPaymentById,
+  getPayments,
   getPaymentsByAccount,
   getPaymentsByReservation,
   refundPayment,
@@ -14,6 +16,14 @@ import {
 import { authMiddleware, rolMiddleware } from "../middleware";
 
 export const paymentRouter = Router();
+
+// List all payments (admin/creator only)
+paymentRouter.get(
+  "/",
+  authMiddleware,
+  rolMiddleware(["admin", "creator"]),
+  getPayments
+);
 
 // List payments for an account (use "me" for the authenticated user)
 paymentRouter.get(
@@ -40,6 +50,20 @@ paymentRouter.get(
   authMiddleware,
   rolMiddleware(["admin", "creator"]),
   getPaymentsByReservation
+);
+
+// Get a single payment by id (admin/creator)
+paymentRouter.get(
+  "/:id",
+  param("id")
+    .notEmpty()
+    .withMessage("Payment ID is required")
+    .isString()
+    .withMessage("Payment ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  rolMiddleware(["admin", "creator"]),
+  getPaymentById
 );
 
 // Create debit payment

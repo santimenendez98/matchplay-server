@@ -31,6 +31,7 @@ import {
 } from "../db/MatchQueries";
 import {
   createPaymentHistoryQuery,
+  getAllPaymentsQuery,
   getPaymentByIdQuery,
   getPaymentByReservationAndAccount,
   getPaymentByReservation,
@@ -563,6 +564,39 @@ export const createCashPayment = async (
     return res
       .status(400)
       .json({ error: "Error creating payment", message: err.message });
+  }
+};
+
+// Get all payments (admin/creator)
+export const getPayments = async (_req: Request, res: Response) => {
+  try {
+    const result = await getAllPaymentsQuery();
+    res.status(200).json({ message: "Payment List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Get payment by id (admin/creator)
+export const getPaymentById = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const result = await getPaymentByIdQuery(id);
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Payment not found" });
+    }
+    res
+      .status(200)
+      .json({ message: "Payment found", data: result.rows[0] });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
   }
 };
 

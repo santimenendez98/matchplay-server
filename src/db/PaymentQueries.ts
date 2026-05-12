@@ -1,6 +1,11 @@
 import { historyPaymentModel, refundBody } from "../types/Payment";
 import pool from "./connection";
 
+export const getAllPaymentsQuery = async () =>
+  pool.query<historyPaymentModel>(
+    `SELECT * FROM Payment ORDER BY payment_date DESC`
+  );
+
 export const getPaymentByMatchAndAccount = async (
   match_id: string,
   account_id: string

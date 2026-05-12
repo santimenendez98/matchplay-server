@@ -365,14 +365,16 @@ Prefijo base: `/api`.
 
 | Verb | Path                                     | Auth | Rol           | Descripción                                                  |
 |------|------------------------------------------|------|---------------|--------------------------------------------------------------|
+| GET  | `/payment`                               | ✓    | admin, creator| Lista todos los pagos del sistema.                           |
+| GET  | `/payment/:id`                           | ✓    | admin, creator| Detalle de un pago.                                          |
+| GET  | `/payment/account/:accountId` (o `me`)   | ✓    | any           | Listado de pagos del usuario.                                |
+| GET  | `/payment/reservation/:id`               | ✓    | admin, creator| Listado de pagos por reserva.                                |
 | POST | `/payment/pay`                           | ✓    | user          | Pago con tarjeta de débito vía MercadoPago.                  |
 | POST | `/payment/bank-transfer`                 | ✓    | user          | Crea pago `pending` con `proof_url` (Cloudinary).            |
 | POST | `/payment/bank-transfer/confirm`         | ✓    | admin         | Confirma/rechaza la transferencia.                           |
 | POST | `/payment/cash`                          | ✓    | user          | Registra pago en efectivo (confirma reserva).                |
 | POST | `/payment/proof`                         | ✓    | user          | PDF del comprobante MercadoPago.                             |
 | POST | `/payment/refund`                        | ✓    | admin         | Marca el refund como `completed`/`failed` + sube comprobante.|
-| GET  | `/payment/account/:accountId` (o `me`)   | ✓    | any           | Listado de pagos del usuario.                                |
-| GET  | `/payment/reservation/:id`               | ✓    | admin, creator| Listado de pagos por reserva.                                |
 
 ---
 

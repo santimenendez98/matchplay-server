@@ -151,6 +151,81 @@ describe("New endpoints", () => {
     });
   });
 
+  describe("GET /api/payment (list all)", () => {
+    it("rejects regular users", async () => {
+      const res = await request(app)
+        .get("/api/payment")
+        .set("Authorization", bearer("1", "user"));
+      expect(res.status).toBe(403);
+    });
+
+    it("requires auth", async () => {
+      const res = await request(app).get("/api/payment");
+      expect(res.status).toBe(401);
+    });
+
+    it("returns all payments for an admin", async () => {
+      setupQueryStubs([
+        {
+          match: "FROM Payment ORDER BY payment_date DESC",
+          result: { rows: [{ id: "1" }, { id: "2" }] },
+        },
+      ]);
+      const res = await request(app)
+        .get("/api/payment")
+        .set("Authorization", bearer("1", "admin"));
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(2);
+    });
+
+    it("returns all payments for a creator", async () => {
+      setupQueryStubs([
+        {
+          match: "FROM Payment ORDER BY payment_date DESC",
+          result: { rows: [] },
+        },
+      ]);
+      const res = await request(app)
+        .get("/api/payment")
+        .set("Authorization", bearer("1", "creator"));
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual([]);
+    });
+  });
+
+  describe("GET /api/payment/:id", () => {
+    it("rejects regular users", async () => {
+      const res = await request(app)
+        .get("/api/payment/1")
+        .set("Authorization", bearer("1", "user"));
+      expect(res.status).toBe(403);
+    });
+
+    it("returns 404 when payment is missing", async () => {
+      setupQueryStubs([
+        { match: "FROM Payment WHERE id", result: { rows: [] } },
+      ]);
+      const res = await request(app)
+        .get("/api/payment/999")
+        .set("Authorization", bearer("1", "admin"));
+      expect(res.status).toBe(404);
+    });
+
+    it("returns the payment", async () => {
+      setupQueryStubs([
+        {
+          match: "FROM Payment WHERE id",
+          result: { rows: [{ id: "1", payment_status: "completed" }] },
+        },
+      ]);
+      const res = await request(app)
+        .get("/api/payment/1")
+        .set("Authorization", bearer("1", "admin"));
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject({ id: "1" });
+    });
+  });
+
   describe("GET /api/payment/account/me", () => {
     it("returns the user's payments", async () => {
       setupQueryStubs([
