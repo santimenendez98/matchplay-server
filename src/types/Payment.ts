@@ -1,12 +1,30 @@
-export interface paymentDataBody {
+export interface CreatePreferenceBody {
   reservation_id: string;
-  token: string;
-  amount: number;
-  payment_method_id: string;
-  issuer_id: number;
   email: string;
-  identification_type: string;
-  identification_number: string;
+}
+
+export interface CreatePreferenceInput {
+  reservation_id: string;
+  amount: number;
+  description: string;
+  payer_email: string;
+  external_reference: string;
+}
+
+export interface CreatePreferenceResponse {
+  message: string;
+  init_point: string;
+  preference_id: string;
+  payment_id: string;
+}
+
+export interface MpWebhookBody {
+  id?: string;
+  type?: string;
+  action?: string;
+  data?: { id: string };
+  date_created?: string;
+  user_id?: string;
 }
 
 export interface historyPaymentModel {
@@ -15,10 +33,13 @@ export interface historyPaymentModel {
   reservation_id: string;
   total_amount: number;
   payment_method: "debit_card" | "cash" | "bank_transfer";
-  payment_status: "pending" | "completed" | "failed";
+  payment_status: "pending" | "completed" | "failed" | "cancelled";
   payment_date: string;
   paid_by: string;
-  mp_payment_id?: string;
+  mp_payment_id?: string | null;
+  mp_preference_id?: string | null;
+  mp_status?: string | null;
+  mp_status_detail?: string | null;
   proof_of_payment?: string;
 }
 

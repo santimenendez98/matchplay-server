@@ -12,7 +12,7 @@ Permite:
   por hora y media hora.
 - **Reservar** un slot a nombre de un usuario, individualmente o como
   **partido** abierto a otros jugadores.
-- **Pagar** la reserva con **tarjeta de débito** (MercadoPago), **transferencia
+- **Pagar** la reserva con **MercadoPago Checkout Pro** (init_point + webhook), **transferencia
   bancaria** (con comprobante en Cloudinary) o **efectivo**.
 - **Cancelar** reservas con o sin solicitud previa de aprobación por parte de
   un administrador, generando registros de **historial** y **reembolso**.
@@ -60,7 +60,7 @@ Permite:
 
   Socket.IO ───────────► clientes (web/móvil) en salas por cancha o partido
   Cron jobs ───────────► generan días/precios y limpian pre-reservas vencidas
-  MercadoPago SDK ─────► pagos con tarjeta + generación de comprobante PDF
+  MercadoPago SDK ─────► Checkout Pro (preferences + webhook) + PDF comprobante
   Cloudinary ──────────► verificación de comprobantes / imágenes subidas
 ```
 
@@ -118,6 +118,9 @@ Crear un `.env` (no se commitea — está en `.gitignore`). Hay un
 | `JWT_REFRESH_TTL`             | Vida del refresh token (default `30d`).                                    |
 | `CORS_ORIGIN`                 | Lista separada por comas con los orígenes permitidos.                      |
 | `MERCADO_PAGO_ACCESS_TOKEN`   | Token de acceso de MercadoPago.                                            |
+| `MERCADO_PAGO_WEBHOOK_SECRET` | Secret para verificar la firma del webhook de MercadoPago.                 |
+| `FRONTEND_URL`                | Base URL del frontend (usada para construir las `back_urls` de Checkout Pro). |
+| `API_BASE_URL`                | Base URL pública del backend (usada como `notification_url` del webhook).   |
 | `CLOUDINARY_CLOUD_NAME`       | Nombre del cloud de Cloudinary.                                            |
 | `CLOUDINARY_API_KEY`          | API key de Cloudinary.                                                     |
 | `CLOUDINARY_API_SECRET`       | API secret de Cloudinary (usado para firmar uploads).                      |
@@ -247,10 +250,50 @@ exige que el rol decodificado esté en la lista.
 
 ### 4. Pagos
 
-- **Débito (MercadoPago):** se envía el token de tarjeta tokenizado en
-  frontend; el server crea el `Payment` en MP y, si se aprueba, marca la
-  `Reservation` como `confirmed` y guarda el `mp_payment_id`. Solo se aceptan
-  IDs que empiezan con `deb` (`debit_card`, `debvisa`, etc.).
+- **MercadoPago Checkout Pro:** el frontend hace `POST /api/payment/pay` con
+  `{ reservation_id, email }`. El backend valida la reserva/partido, calcula
+  el monto, inserta una fila `Payment` en estado `pending` y crea una
+  **preference** en MercadoPago. Responde `{ init_point, preference_id,
+  payment_id }`; el frontend redirige al usuario a `init_point`.
+  Cuando el usuario completa el pago, MercadoPago llama al webhook
+  `POST /api/payment/webhook` (público, firma verificada con
+  `MERCADO_PAGO_WEBHOOK_SECRET`). El handler obtiene el `Payment` de MP por
+  `data.id`, lo correlaciona con el row local vía `external_reference` y:
+  - `approved` → `payment_status = completed`; si la reserva es individual
+    pasa a `confirmed`, si es de partido se setea `MatchPlayer.payment_method
+    = debit_card`.
+  - `rejected | cancelled | refunded | charged_back` → `failed`.
+  - `in_process | pending` → `pending`.
+  El handler es **idempotente**: si el `Payment` ya está `completed` con el
+  mismo `mp_payment_id`, no escribe. Las `back_urls` (`success`/`failure`/
+  `pending`) se arman desde `FRONTEND_URL`.
+
+  Diagrama de secuencia:
+
+  ```
+  Frontend           Backend                       MercadoPago
+     │ POST /pay       │                              │
+     │ {res_id,email}  │                              │
+     │ ───────────────>│                              │
+     │                 │ INSERT Payment (pending)     │
+     │                 │ preference.create() ─────────>
+     │                 │ <───── { init_point, id }    │
+     │                 │ UPDATE Payment.mp_preference │
+     │ <─── init_point │                              │
+     │ window.location │                              │
+     │  = init_point   │                              │
+     │                 │                              │
+     │   (user paga en MP)                            │
+     │                 │  POST /api/payment/webhook  │
+     │                 │ <─────── { type, data.id }   │
+     │                 │ verifyWebhookSignature       │
+     │                 │ getPayment(data.id) ────────>
+     │                 │ <───── { status, ext_ref }   │
+     │                 │ UPDATE Payment + Reservation │
+     │  back_url (success/failure/pending)            │
+     │ <───────────────────────────────────────────── │
+  ```
+
 - **Transferencia bancaria:** el usuario sube el comprobante a Cloudinary y
   manda la URL en `proof_url`. El payment queda `pending`; un admin lo confirma
   con `POST /api/payment/bank-transfer/confirm`.
@@ -383,7 +426,8 @@ Prefijo base: `/api`.
 | GET  | `/payment/account/:accountId` (o `me`)   | ✓    | owner/admin   | Listado de pagos del usuario (paginado).                     |
 | GET  | `/payment/reservation/:id`               | ✓    | admin, creator| Listado de pagos por reserva.                                |
 | GET  | `/payment/upload/sign?folder=...`        | ✓    | any           | Firma para upload directo a Cloudinary desde el frontend.    |
-| POST | `/payment/pay`                           | ✓    | user          | Pago con tarjeta de débito vía MercadoPago.                  |
+| POST | `/payment/pay`                           | ✓    | user          | Crea preference de MercadoPago Checkout Pro; devuelve `init_point`. |
+| POST | `/payment/webhook`                       | —    | —             | Webhook firmado de MercadoPago (actualiza Payment+Reservation). |
 | POST | `/payment/bank-transfer`                 | ✓    | user          | Crea pago `pending` con `proof_url` (Cloudinary).            |
 | POST | `/payment/bank-transfer/confirm`         | ✓    | admin         | Confirma/rechaza la transferencia.                           |
 | POST | `/payment/cash`                          | ✓    | user          | Registra pago en efectivo (confirma reserva).                |

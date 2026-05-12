@@ -5,12 +5,13 @@ import {
   confirmTransferPayment,
   createBankTransfer,
   createCashPayment,
-  createDebitPayment,
+  createCheckoutPreference,
   generateProof,
   getPaymentById,
   getPayments,
   getPaymentsByAccount,
   getPaymentsByReservation,
+  mercadoPagoWebhook,
   refundPayment,
   signCloudinaryUpload,
 } from "../controllers/Payment";
@@ -75,7 +76,9 @@ paymentRouter.get(
   getPaymentById
 );
 
-// Create debit payment
+// Create MercadoPago Checkout Pro preference for a reservation.
+// Frontend sends { reservation_id, email } and receives an init_point URL
+// to redirect the user to MercadoPago's hosted checkout.
 paymentRouter.post(
   "/pay",
   body("reservation_id")
@@ -83,41 +86,20 @@ paymentRouter.post(
     .withMessage("Reservation ID is required")
     .isString()
     .withMessage("Reservation ID must be a string"),
-  body("amount")
-    .notEmpty()
-    .withMessage("Amount is required")
-    .isNumeric()
-    .withMessage("Amount must be a number"),
-  body("payment_method_id")
-    .notEmpty()
-    .withMessage("Payment method ID is required")
-    .isString()
-    .withMessage("Payment method ID must be a string"),
-  body("token")
-    .notEmpty()
-    .withMessage("Token is required")
-    .isString()
-    .withMessage("Token must be a string"),
   body("email")
     .notEmpty()
     .withMessage("Email is required")
     .isEmail()
     .withMessage("Email must be a valid email"),
-  body("identification_type")
-    .notEmpty()
-    .withMessage("Identification type is required")
-    .isString()
-    .withMessage("Identification type must be a string"),
-  body("identification_number")
-    .notEmpty()
-    .withMessage("Identification number is required")
-    .isString()
-    .withMessage("Identification number must be a string"),
   handleValidationErrors,
   authMiddleware,
   rolMiddleware(["user"]),
-  createDebitPayment
+  createCheckoutPreference
 );
+
+// MercadoPago webhook (public). Signature is verified inside the handler
+// using MERCADO_PAGO_WEBHOOK_SECRET.
+paymentRouter.post("/webhook", mercadoPagoWebhook);
 
 // Create bank transfer payment
 paymentRouter.post(

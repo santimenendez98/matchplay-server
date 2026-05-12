@@ -1,56 +1,82 @@
-import { Payment, MercadoPagoConfig } from "mercadopago";
-import { paymentDataBody, proofPaymentData } from "../types/Payment";
-import { getReservationWithIdQuery } from "../db/ReservationQueries";
-import { getOnlyDate } from "./addMinutes";
+import { Payment, Preference, MercadoPagoConfig } from "mercadopago";
+import crypto from "crypto";
 import puppeteer from "puppeteer";
+import {
+  CreatePreferenceInput,
+  proofPaymentData,
+} from "../types/Payment";
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || "",
 });
 
 const payment = new Payment(client);
+const preference = new Preference(client);
 
-// Create payment
-export const createPayment = async (data: paymentDataBody) => {
-  try {
-    const reservation = await getReservationWithIdQuery(data.reservation_id);
+export const createPreference = async (input: CreatePreferenceInput) => {
+  const FRONTEND = process.env.FRONTEND_URL || "http://localhost:5173";
+  const API = process.env.API_BASE_URL || "http://localhost:3000";
 
-    if (reservation.rows.length === 0) {
-      throw new Error("RESERVATION_NOT_FOUND");
-    }
-
-    // Only debit cards are accepted
-    if (data.payment_method_id.slice(0, 3) !== "deb") {
-      throw new Error("ONLY_DEBIT_CARDS_ARE_ACCEPTED");
-    }
-
-    // Format reservation date
-    const reservationDate = getOnlyDate(reservation.rows[0].reservation_date);
-
-    // Create payment
-    const paymentRequest = await payment.create({
-      body: {
-        transaction_amount: data.amount,
-        token: data.token,
-        description: `Reservation nro ${data.reservation_id} - ${reservationDate} - ${reservation.rows[0].start_time} to ${reservation.rows[0].end_time}`,
-        installments: 1,
-        payment_method_id: data.payment_method_id,
-        issuer_id: data.issuer_id,
-        payer: {
-          email: data.email,
-          identification: {
-            type: data.identification_type,
-            number: data.identification_number,
-          },
+  const result = await preference.create({
+    body: {
+      items: [
+        {
+          id: input.reservation_id,
+          title: input.description,
+          quantity: 1,
+          currency_id: "UYU",
+          unit_price: input.amount,
         },
+      ],
+      payer: { email: input.payer_email },
+      external_reference: input.external_reference,
+      notification_url: `${API}/api/payment/webhook`,
+      back_urls: {
+        success: `${FRONTEND}/payment/success?reservation_id=${input.reservation_id}`,
+        failure: `${FRONTEND}/payment/failure?reservation_id=${input.reservation_id}`,
+        pending: `${FRONTEND}/payment/pending?reservation_id=${input.reservation_id}`,
       },
-      requestOptions: { idempotencyKey: `reservation-${data.reservation_id}` },
-    });
+      auto_return:
+        process.env.NODE_ENV === "production" ? "approved" : undefined,
+      binary_mode: false,
+    },
+    requestOptions: {
+      idempotencyKey: `pref-reservation-${input.reservation_id}-${Date.now()}`,
+    },
+  });
 
-    return paymentRequest;
-  } catch (error) {
-    const err = error as Error;
-    throw new Error(err.message);
+  return result;
+};
+
+export const verifyWebhookSignature = (
+  xSignature: string | undefined,
+  xRequestId: string | undefined,
+  dataId: string | undefined
+): boolean => {
+  const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+  if (!secret || !xSignature || !xRequestId || !dataId) return false;
+
+  const parts = Object.fromEntries(
+    xSignature
+      .split(",")
+      .map((s) => s.trim().split("=").map((t) => t.trim()))
+      .filter((p) => p.length === 2)
+  );
+
+  const ts = parts.ts;
+  const v1 = parts.v1;
+  if (!ts || !v1) return false;
+
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+  const hmac = crypto
+    .createHmac("sha256", secret)
+    .update(manifest)
+    .digest("hex");
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(v1));
+  } catch {
+    return false;
   }
 };
 

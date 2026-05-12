@@ -91,6 +91,47 @@ export const createPaymentHistoryQuery = async (data: historyPaymentModel) => {
   );
 };
 
+export const updatePaymentPreferenceQuery = async (
+  payment_id: string,
+  preference_id: string
+) => {
+  return pool.query(
+    `UPDATE Payment SET mp_preference_id = $1 WHERE id = $2`,
+    [preference_id, payment_id]
+  );
+};
+
+export const getPaymentByPreferenceQuery = async (preference_id: string) => {
+  return pool.query<historyPaymentModel>(
+    `SELECT * FROM Payment WHERE mp_preference_id = $1`,
+    [preference_id]
+  );
+};
+
+export const updatePaymentAfterWebhookQuery = async (data: {
+  payment_id: string;
+  mp_payment_id: string;
+  payment_status: "pending" | "completed" | "failed" | "cancelled";
+  mp_status: string;
+  mp_status_detail: string;
+}) => {
+  return pool.query(
+    `UPDATE Payment
+       SET mp_payment_id = $1,
+           payment_status = $2,
+           mp_status = $3,
+           mp_status_detail = $4
+     WHERE id = $5`,
+    [
+      data.mp_payment_id,
+      data.payment_status,
+      data.mp_status,
+      data.mp_status_detail,
+      data.payment_id,
+    ]
+  );
+};
+
 // REFUND QUERIES
 
 export const getRefundByPaymentIdQuery = async (payment_id: string) => {

@@ -12,28 +12,22 @@ const app = buildApp();
 const mp = require("../../src/services/mercadoPago");
 const cloud = require("../../src/services/cloudinary");
 
-const validDebitBody = {
-  reservation_id: "10",
-  amount: 800,
-  payment_method_id: "debit_card",
-  token: "tok_123",
-  email: "a@b.com",
-  identification_type: "CI",
-  identification_number: "12345678",
-};
+const validBody = { reservation_id: "10", email: "a@b.com" };
 
 describe("Payment router", () => {
   afterEach(() => {
     resetQueryStubs();
-    (mp.createPayment as jest.Mock).mockReset();
+    (mp.createPreference as jest.Mock).mockReset();
     (mp.getPayment as jest.Mock).mockReset();
+    (mp.verifyWebhookSignature as jest.Mock).mockReset();
+    (mp.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
     (mp.generateProofPayment as jest.Mock).mockReset();
     (cloud.verifyCloudinaryFile as jest.Mock).mockReset();
   });
 
-  describe("POST /api/payment/pay (debit)", () => {
+  describe("POST /api/payment/pay (Checkout Pro preference)", () => {
     it("requires auth", async () => {
-      const res = await request(app).post("/api/payment/pay").send(validDebitBody);
+      const res = await request(app).post("/api/payment/pay").send(validBody);
       expect(res.status).toBe(401);
     });
 
@@ -57,7 +51,7 @@ describe("Payment router", () => {
       const res = await request(app)
         .post("/api/payment/pay")
         .set("Authorization", bearer("1", "user"))
-        .send(validDebitBody);
+        .send(validBody);
       expect(res.status).toBe(404);
       expect(res.body.error).toBe("Reservation not found");
     });
@@ -73,6 +67,9 @@ describe("Payment router", () => {
                 status: "confirmed",
                 price: 800,
                 is_match: false,
+                reservation_date: "2025-01-01",
+                start_time: "10:00",
+                end_time: "11:00",
               },
             ],
           },
@@ -86,13 +83,16 @@ describe("Payment router", () => {
       const res = await request(app)
         .post("/api/payment/pay")
         .set("Authorization", bearer("1", "user"))
-        .send(validDebitBody);
+        .send(validBody);
       expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/already confirmed/);
     });
 
-    it("creates a debit payment for a confirmed reservation", async () => {
-      (mp.createPayment as jest.Mock).mockResolvedValue({ id: 99999 });
+    it("creates a preference and returns init_point for a plain reservation", async () => {
+      (mp.createPreference as jest.Mock).mockResolvedValue({
+        id: "PREF-1",
+        init_point: "https://mp/checkout/PREF-1",
+      });
 
       setupQueryStubs([
         {
@@ -104,6 +104,9 @@ describe("Payment router", () => {
                 status: "pending",
                 price: 800,
                 is_match: false,
+                reservation_date: "2025-01-01",
+                start_time: "10:00",
+                end_time: "11:00",
               },
             ],
           },
@@ -117,12 +120,176 @@ describe("Payment router", () => {
           match: "FROM Payment WHERE reservation_id",
           result: { rows: [] },
         },
-        // createPaymentHistoryQuery
+        // createPaymentHistoryQuery -> returns the new row id
         {
           match: "INSERT INTO Payment",
           result: { rows: [{ id: "501" }] },
         },
-        // updateReservationStatusQuery -> confirmed
+        // updatePaymentPreferenceQuery
+        {
+          match: "UPDATE Payment SET mp_preference_id",
+          result: { rows: [] },
+        },
+      ]);
+
+      const res = await request(app)
+        .post("/api/payment/pay")
+        .set("Authorization", bearer("1", "user"))
+        .send(validBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        init_point: "https://mp/checkout/PREF-1",
+        preference_id: "PREF-1",
+        payment_id: "501",
+      });
+      expect(mp.createPreference).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reservation_id: "10",
+          amount: 800,
+          payer_email: "a@b.com",
+          external_reference: "501",
+        })
+      );
+    });
+
+    it("creates a preference for a match-type reservation", async () => {
+      (mp.createPreference as jest.Mock).mockResolvedValue({
+        id: "PREF-2",
+        init_point: "https://mp/checkout/PREF-2",
+      });
+
+      setupQueryStubs([
+        {
+          match: "FROM Reservation WHERE id",
+          result: {
+            rows: [
+              {
+                id: "10",
+                status: "pending",
+                price: 800,
+                is_match: true,
+                reservation_date: "2025-01-01",
+                start_time: "10:00",
+                end_time: "11:00",
+              },
+            ],
+          },
+        },
+        {
+          match: "FROM Account WHERE email",
+          result: { rows: [{ id: "1" }] },
+        },
+        // getMatchByReservationQuery
+        {
+          match: /FROM Match\s/i,
+          result: {
+            rows: [{ id: "20", status: "completed", price_per_player: 200 }],
+          },
+        },
+        // getPlayerJoinedByMatchQuery
+        {
+          match: /FROM MatchPlayer/i,
+          result: {
+            rows: [
+              {
+                match_id: "20",
+                player_id: "1",
+                payment_method: "cash",
+              },
+            ],
+          },
+        },
+        // getPaymentByReservationAndAccount -> empty
+        {
+          match: "FROM Payment WHERE reservation_id",
+          result: { rows: [] },
+        },
+        // createPaymentHistoryQuery
+        {
+          match: "INSERT INTO Payment",
+          result: { rows: [{ id: "601" }] },
+        },
+        // updatePaymentPreferenceQuery
+        {
+          match: "UPDATE Payment SET mp_preference_id",
+          result: { rows: [] },
+        },
+      ]);
+
+      const res = await request(app)
+        .post("/api/payment/pay")
+        .set("Authorization", bearer("1", "user"))
+        .send(validBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body.preference_id).toBe("PREF-2");
+      expect(mp.createPreference).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 200 })
+      );
+    });
+  });
+
+  describe("POST /api/payment/webhook", () => {
+    it("returns 401 when signature verification fails", async () => {
+      (mp.verifyWebhookSignature as jest.Mock).mockReturnValue(false);
+
+      const res = await request(app)
+        .post("/api/payment/webhook")
+        .set("x-signature", "ts=123,v1=deadbeef")
+        .set("x-request-id", "req-1")
+        .send({ type: "payment", data: { id: "999" } });
+
+      expect(res.status).toBe(401);
+    });
+
+    it("acks non-payment events without DB writes", async () => {
+      const res = await request(app)
+        .post("/api/payment/webhook")
+        .set("x-signature", "ts=123,v1=ok")
+        .set("x-request-id", "req-1")
+        .send({ type: "merchant_order", data: { id: "999" } });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ received: true });
+      expect(mp.getPayment).not.toHaveBeenCalled();
+    });
+
+    it("marks payment completed and confirms reservation on approved", async () => {
+      (mp.getPayment as jest.Mock).mockResolvedValue({
+        id: 99999,
+        status: "approved",
+        status_detail: "accredited",
+        external_reference: "501",
+      });
+
+      setupQueryStubs([
+        // getPaymentByIdQuery (external_reference = local id)
+        {
+          match: "FROM Payment WHERE id",
+          result: {
+            rows: [
+              {
+                id: "501",
+                payment_status: "pending",
+                mp_payment_id: null,
+                reservation_id: "10",
+                paid_by: "1",
+              },
+            ],
+          },
+        },
+        // updatePaymentAfterWebhookQuery
+        {
+          match: /UPDATE Payment\s+SET mp_payment_id/,
+          result: { rows: [] },
+        },
+        // getReservationWithIdQuery
+        {
+          match: "FROM Reservation WHERE id",
+          result: { rows: [{ id: "10", is_match: false }] },
+        },
+        // updateReservationStatusQuery
         {
           match: "UPDATE Reservation SET status",
           result: { rows: [{ id: "10", status: "confirmed" }] },
@@ -130,12 +297,86 @@ describe("Payment router", () => {
       ]);
 
       const res = await request(app)
-        .post("/api/payment/pay")
-        .set("Authorization", bearer("1", "user"))
-        .send(validDebitBody);
+        .post("/api/payment/webhook")
+        .set("x-signature", "ts=123,v1=ok")
+        .set("x-request-id", "req-1")
+        .send({ type: "payment", data: { id: "99999" } });
+
       expect(res.status).toBe(200);
-      expect(res.body.message).toMatch(/Payment for reservation confirmed/);
-      expect(mp.createPayment).toHaveBeenCalled();
+      expect(res.body).toEqual({ received: true });
+    });
+
+    it("marks payment failed on rejected and does not touch reservation", async () => {
+      (mp.getPayment as jest.Mock).mockResolvedValue({
+        id: 99998,
+        status: "rejected",
+        status_detail: "cc_rejected",
+        external_reference: "502",
+      });
+
+      setupQueryStubs([
+        {
+          match: "FROM Payment WHERE id",
+          result: {
+            rows: [
+              {
+                id: "502",
+                payment_status: "pending",
+                mp_payment_id: null,
+                reservation_id: "11",
+                paid_by: "1",
+              },
+            ],
+          },
+        },
+        {
+          match: /UPDATE Payment\s+SET mp_payment_id/,
+          result: { rows: [] },
+        },
+      ]);
+
+      const res = await request(app)
+        .post("/api/payment/webhook")
+        .set("x-signature", "ts=123,v1=ok")
+        .set("x-request-id", "req-1")
+        .send({ type: "payment", data: { id: "99998" } });
+
+      expect(res.status).toBe(200);
+    });
+
+    it("is idempotent on retry when payment already completed", async () => {
+      (mp.getPayment as jest.Mock).mockResolvedValue({
+        id: 99999,
+        status: "approved",
+        status_detail: "accredited",
+        external_reference: "501",
+      });
+
+      setupQueryStubs([
+        {
+          match: "FROM Payment WHERE id",
+          result: {
+            rows: [
+              {
+                id: "501",
+                payment_status: "completed",
+                mp_payment_id: "99999",
+                reservation_id: "10",
+                paid_by: "1",
+              },
+            ],
+          },
+        },
+      ]);
+
+      const res = await request(app)
+        .post("/api/payment/webhook")
+        .set("x-signature", "ts=123,v1=ok")
+        .set("x-request-id", "req-1")
+        .send({ type: "payment", data: { id: "99999" } });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ received: true });
     });
   });
 

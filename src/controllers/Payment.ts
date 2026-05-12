@@ -1,14 +1,17 @@
 import { Request, Response } from "express";
 import {
-  createPayment,
+  createPreference,
   generateProofPayment,
   getPayment,
+  verifyWebhookSignature,
 } from "../services/mercadoPago";
 import {
   confirmTransferBody,
+  CreatePreferenceBody,
+  CreatePreferenceResponse,
   historyPaymentModel,
+  MpWebhookBody,
   PaymentCashBody,
-  paymentDataBody,
   paymentResponse,
   PaymentTransferBody,
   proofBodyModel,
@@ -37,167 +40,314 @@ import {
   getPaymentByReservation,
   getPaymentsByAccountQuery,
   getRefundByPaymentIdQuery,
+  updatePaymentAfterWebhookQuery,
+  updatePaymentPreferenceQuery,
   updatePaymentStatusQuery,
   updateStatusRefundQuery,
 } from "../db/PaymentQueries";
-import { getCurrentTime } from "../services/addMinutes";
+import { getCurrentTime, getOnlyDate } from "../services/addMinutes";
 import { errorResponseModel, successResponseModel } from "../types";
 import { buildSignedUpload, verifyCloudinaryFile } from "../services/cloudinary";
 import { parsePagination } from "../services/pagination";
+import { logger } from "../services/logger";
 
-// Generate debit payment
-export const createDebitPayment = async (
-  req: Request<{}, {}, paymentDataBody>,
-  res: Response
+const mapMpStatus = (
+  status?: string
+): "pending" | "completed" | "failed" | "cancelled" => {
+  switch (status) {
+    case "approved":
+      return "completed";
+    case "in_process":
+    case "pending":
+    case "authorized":
+      return "pending";
+    case "rejected":
+    case "cancelled":
+    case "refunded":
+    case "charged_back":
+      return "failed";
+    default:
+      return "pending";
+  }
+};
+
+// Create a MercadoPago Checkout Pro preference for a reservation.
+// Frontend sends { reservation_id, email }; backend resolves the amount,
+// inserts a pending Payment row, creates the MP preference and returns the
+// init_point so the user can be redirected to MercadoPago.
+export const createCheckoutPreference = async (
+  req: Request<{}, {}, CreatePreferenceBody>,
+  res: Response<CreatePreferenceResponse | errorResponseModel>
 ) => {
+  let pendingPaymentId: string | undefined;
   try {
     const { reservation_id, email } = req.body;
     const reservation = await getReservationWithIdQuery(reservation_id);
     const account = await getAccountByEmailQuery(email);
     const today = getCurrentTime();
 
-    // Check if reservation exists
     if (reservation.rows.length === 0) {
-      return res.status(404).json({ error: "Reservation not found" });
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Reservation not found" });
     }
 
-    if (account.rows.length === 0) {
-      return res.status(404).json({
-        error: "Account not found",
-      });
+    if (account.rows.length === 0 || !account.rows[0].id) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Account not found" });
     }
 
-    // If reservation is a match
+    let totalAmount = 0;
+    let description = "";
+    let matchPlayerInfo: { match_id: string; player_id: string } | null = null;
+
     if (reservation.rows[0].is_match) {
       const match = await getMatchByReservationQuery(reservation_id);
 
       if (match.rows.length === 0) {
-        return res.status(404).json({ error: "Match not found" });
+        return res
+          .status(404)
+          .json({ message: "An error ocurred", error: "Match not found" });
       }
 
-      if (match.rows[0].id && account.rows[0].id) {
-        //Get player by match
-        const player_match = await getPlayerJoinedByMatchQuery(
-          account.rows[0].id,
-          match.rows[0].id
-        );
-
-        const payment = await getPaymentByReservationAndAccount(
-          reservation_id,
-          account.rows[0].id
-        );
-
-        // Check if match is already confirmed
-        if (match.rows[0].status !== "completed") {
-          return res.status(400).json({
-            error: `Match is already ${match.rows[0].status}`,
-          });
-        }
-
-        if (player_match.rows.length === 0) {
-          return res
-            .status(400)
-            .json({ error: "No found this player on match" });
-        }
-
-        // Check if player already paid
-        if (
-          player_match.rows[0].payment_method !== "cash" &&
-          payment.rows.length > 0
-        ) {
-          return res.status(400).json({
-            error: "The player has already paid for this match",
-          });
-        }
-
-        // Create Payment
-        const paymentRequest = await createPayment(req.body);
-
-        if (!paymentRequest) {
-          return res.status(400).json({ error: "Payment creation failed" });
-        }
-
-        if (paymentRequest.id) {
-          // Update payment method in history
-          await updatePaymentMethod(
-            player_match.rows[0].match_id,
-            player_match.rows[0].player_id,
-            "debit_card"
-          );
-
-          // Create History Payment
-          await createPaymentHistoryQuery({
-            account_id: account.rows[0].id,
-            reservation_id: reservation_id,
-            total_amount: match.rows[0].price_per_player,
-            payment_method: "debit_card",
-            payment_status: "completed",
-            payment_date: today,
-            paid_by: account.rows[0].id,
-            mp_payment_id: paymentRequest.id.toString(),
-          });
-
-          return res.status(200).json({
-            message: "Payment for match confirmed",
-            payment: paymentRequest,
-          });
-        }
-      }
-    }
-
-    // If reservation is not a match
-    if (account.rows[0].id) {
-      // Check if reservation is already confirmed
-      if (reservation.rows[0].status !== "pending") {
+      if (match.rows[0].status !== "completed") {
         return res.status(400).json({
-          error: `Reservation is already ${reservation.rows[0].status}`,
+          message: "An error ocurred",
+          error: `Match is already ${match.rows[0].status}`,
         });
       }
 
-      // Check if reservation has already been paid
-      const payment = await getPaymentByReservationAndAccount(
+      const player_match = await getPlayerJoinedByMatchQuery(
+        account.rows[0].id,
+        match.rows[0].id!
+      );
+
+      if (player_match.rows.length === 0) {
+        return res.status(400).json({
+          message: "An error ocurred",
+          error: "No found this player on match",
+        });
+      }
+
+      const existing = await getPaymentByReservationAndAccount(
         reservation_id,
         account.rows[0].id
       );
 
-      if (payment.rows.length > 0) {
+      const blocking = existing.rows.find(
+        (p) =>
+          p.payment_status === "pending" || p.payment_status === "completed"
+      );
+
+      if (
+        blocking &&
+        player_match.rows[0].payment_method !== "cash"
+      ) {
         return res.status(400).json({
+          message: "An error ocurred",
+          error: "The player has already paid for this match",
+        });
+      }
+
+      totalAmount = match.rows[0].price_per_player;
+      description = `Match #${match.rows[0].id} - ${getOnlyDate(
+        reservation.rows[0].reservation_date
+      )} ${reservation.rows[0].start_time}-${reservation.rows[0].end_time}`;
+      matchPlayerInfo = {
+        match_id: String(player_match.rows[0].match_id),
+        player_id: String(player_match.rows[0].player_id),
+      };
+    } else {
+      if (reservation.rows[0].status !== "pending") {
+        return res.status(400).json({
+          message: "An error ocurred",
+          error: `Reservation is already ${reservation.rows[0].status}`,
+        });
+      }
+
+      const existing = await getPaymentByReservationAndAccount(
+        reservation_id,
+        account.rows[0].id
+      );
+
+      const blocking = existing.rows.find(
+        (p) =>
+          p.payment_status === "pending" || p.payment_status === "completed"
+      );
+
+      if (blocking) {
+        return res.status(400).json({
+          message: "An error ocurred",
           error: "The reservation has already been paid",
         });
       }
 
-      const paymentRequest = await createPayment(req.body);
-
-      // Check if payment was created successfully
-      if (!paymentRequest) {
-        return res.status(400).json({ error: "Payment creation failed" });
-      }
-
-      if (paymentRequest.id && account.rows[0].id) {
-        await createPaymentHistoryQuery({
-          account_id: account.rows[0].id,
-          reservation_id: reservation_id,
-          total_amount: reservation.rows[0].price,
-          payment_method: "debit_card",
-          payment_status: "completed",
-          payment_date: today,
-          paid_by: account.rows[0].id,
-          mp_payment_id: paymentRequest.id.toString(),
-        });
-
-        await updateReservationStatusQuery(reservation_id, "confirmed");
-
-        return res.status(200).json({
-          message: "Payment for reservation confirmed",
-          payment: paymentRequest,
-        });
-      }
+      totalAmount = reservation.rows[0].price;
+      description = `Reservation #${reservation_id} - ${getOnlyDate(
+        reservation.rows[0].reservation_date
+      )} ${reservation.rows[0].start_time}-${reservation.rows[0].end_time}`;
     }
+
+    const inserted = await createPaymentHistoryQuery({
+      account_id: account.rows[0].id,
+      reservation_id: reservation_id,
+      total_amount: totalAmount,
+      payment_method: "debit_card",
+      payment_status: "pending",
+      payment_date: today,
+      paid_by: account.rows[0].id,
+      mp_payment_id: null,
+    });
+
+    pendingPaymentId = String(inserted.rows[0]?.id);
+
+    if (!pendingPaymentId) {
+      return res.status(500).json({
+        message: "An error ocurred",
+        error: "Failed to create payment record",
+      });
+    }
+
+    const pref = await createPreference({
+      reservation_id,
+      amount: totalAmount,
+      description,
+      payer_email: email,
+      external_reference: pendingPaymentId,
+    });
+
+    if (!pref?.id || !pref?.init_point) {
+      await updatePaymentStatusQuery(pendingPaymentId, "failed");
+      return res.status(502).json({
+        message: "An error ocurred",
+        error: "MercadoPago preference creation failed",
+      });
+    }
+
+    await updatePaymentPreferenceQuery(pendingPaymentId, pref.id);
+
+    // Persist matchPlayerInfo on the response for the frontend if needed.
+    void matchPlayerInfo;
+
+    return res.status(200).json({
+      message: "Checkout preference created",
+      init_point: pref.init_point,
+      preference_id: pref.id,
+      payment_id: pendingPaymentId,
+    });
   } catch (error) {
     const err = error as Error;
-    return res
-      .status(400)
-      .json({ error: "Error creating payment", message: err.message });
+    if (pendingPaymentId) {
+      try {
+        await updatePaymentStatusQuery(pendingPaymentId, "failed");
+      } catch (cleanupErr) {
+        logger.warn(
+          { err: cleanupErr, payment_id: pendingPaymentId },
+          "failed to mark pending payment as failed after preference error"
+        );
+      }
+    }
+    logger.error({ err }, "createCheckoutPreference failed");
+    return res.status(400).json({
+      message: "Error creating preference",
+      error: err.message,
+    });
+  }
+};
+
+// MercadoPago webhook handler — public, signature-verified. MP retries on
+// non-2xx, so every branch must be idempotent and respond 200 unless the
+// signature itself is invalid.
+export const mercadoPagoWebhook = async (
+  req: Request<{}, {}, MpWebhookBody>,
+  res: Response
+) => {
+  try {
+    const xSignature = req.header("x-signature");
+    const xRequestId = req.header("x-request-id");
+    const dataId =
+      req.body?.data?.id ??
+      (typeof req.query["data.id"] === "string"
+        ? (req.query["data.id"] as string)
+        : typeof req.query.id === "string"
+        ? (req.query.id as string)
+        : undefined);
+
+    if (!verifyWebhookSignature(xSignature, xRequestId, String(dataId))) {
+      logger.warn({ xRequestId }, "rejecting webhook: invalid signature");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+
+    const eventType = req.body?.type || req.body?.action;
+    if (!eventType || !String(eventType).includes("payment")) {
+      return res.status(200).json({ received: true });
+    }
+
+    if (!dataId) return res.status(200).json({ received: true });
+
+    const mpPayment: any = await getPayment(Number(dataId));
+    const externalRef: string | undefined = mpPayment?.external_reference
+      ? String(mpPayment.external_reference)
+      : undefined;
+
+    if (!externalRef) return res.status(200).json({ received: true });
+
+    const local = await getPaymentByIdQuery(externalRef);
+    if (local.rows.length === 0)
+      return res.status(200).json({ received: true });
+
+    const localRow = local.rows[0];
+    const incomingMpId = String(mpPayment.id);
+
+    if (
+      localRow.payment_status === "completed" &&
+      localRow.mp_payment_id === incomingMpId
+    ) {
+      return res.status(200).json({ received: true });
+    }
+
+    const mappedStatus = mapMpStatus(mpPayment.status);
+
+    await updatePaymentAfterWebhookQuery({
+      payment_id: externalRef,
+      mp_payment_id: incomingMpId,
+      payment_status: mappedStatus,
+      mp_status: mpPayment.status || "",
+      mp_status_detail: mpPayment.status_detail || "",
+    });
+
+    if (mappedStatus === "completed") {
+      const reservation = await getReservationWithIdQuery(
+        localRow.reservation_id
+      );
+      if (reservation.rows.length > 0) {
+        if (reservation.rows[0].is_match) {
+          const match = await getMatchByReservationQuery(
+            localRow.reservation_id
+          );
+          if (match.rows.length > 0 && match.rows[0].id) {
+            await updatePaymentMethod(
+              match.rows[0].id,
+              localRow.paid_by,
+              "debit_card"
+            );
+          }
+        } else {
+          await updateReservationStatusQuery(
+            localRow.reservation_id,
+            "confirmed"
+          );
+        }
+      }
+    }
+
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    const err = error as Error;
+    logger.error({ err }, "mercadoPagoWebhook failed");
+    // Still 200 so MP doesn't retry on internal errors we can't recover from.
+    return res.status(200).json({ received: true });
   }
 };
 

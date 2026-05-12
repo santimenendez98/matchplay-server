@@ -141,8 +141,13 @@ CREATE TABLE Payment (
   payment_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   paid_by INTEGER NOT NULL REFERENCES Account(id),
   mp_payment_id VARCHAR(100) UNIQUE,
+  mp_preference_id VARCHAR(100) UNIQUE,
+  mp_status VARCHAR(40),
+  mp_status_detail VARCHAR(80),
   proof_transfer TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_payment_mp_preference_id ON Payment(mp_preference_id);
 
 CREATE TABLE MatchPlayer (
   match_id INTEGER NOT NULL REFERENCES Match(id),
