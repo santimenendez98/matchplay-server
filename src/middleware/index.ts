@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from "express";
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user?: { id: string; rol: string; type?: string };
     }
   }
 }
@@ -23,6 +23,12 @@ export const authMiddleware = (
 
   try {
     const decoded = verifyToken(token);
+    // Reject refresh tokens used as access tokens
+    if (decoded.type && decoded.type !== "access") {
+      return res
+        .status(401)
+        .json({ message: "Invalid or expired access token" });
+    }
     req.user = decoded;
     next();
   } catch (error) {

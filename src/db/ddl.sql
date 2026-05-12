@@ -1,4 +1,5 @@
 -- Eliminar tablas en orden dependiente para evitar errores
+DROP TABLE IF EXISTS PasswordResetToken CASCADE;
 DROP TABLE IF EXISTS HistoryCancelReservation CASCADE;
 DROP TABLE IF EXISTS MessageMatch CASCADE;
 DROP TABLE IF EXISTS Refund CASCADE;
@@ -176,4 +177,13 @@ CREATE TABLE HistoryCancelReservation (
   cancelled_by INTEGER NOT NULL REFERENCES Account(id),
   cancellation_reason TEXT NOT NULL,
   cancellation_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE PasswordResetToken (
+  id SERIAL PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES Account(id),
+  token_hash VARCHAR(128) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

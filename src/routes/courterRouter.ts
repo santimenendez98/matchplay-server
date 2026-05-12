@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
   getCourts,
+  getCourt,
+  getCourtsByComplex,
   createCourt,
   deleteCourt,
   updateAccount,
@@ -13,6 +15,32 @@ export const courtRouter = Router();
 
 // Get all courts
 courtRouter.get("/", authMiddleware, getCourts);
+
+// Get courts for a complex
+courtRouter.get(
+  "/complex/:complexId",
+  param("complexId")
+    .notEmpty()
+    .withMessage("Complex ID is required")
+    .isString()
+    .withMessage("Complex ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  getCourtsByComplex
+);
+
+// Get a single court
+courtRouter.get(
+  "/:id",
+  param("id")
+    .notEmpty()
+    .withMessage("Court ID is required")
+    .isString()
+    .withMessage("Court ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  getCourt
+);
 
 // Create a new court
 courtRouter.post(

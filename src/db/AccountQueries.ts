@@ -34,3 +34,6 @@ export const getAccountAdminQuery = (id: number | string) =>
     `SELECT * FROM Account WHERE id = $1 AND account_type = 'admin'`,
     [id]
   );
+
+export const updatePasswordQuery = (id: number | string, password: string) =>
+  pool.query(`UPDATE Account SET password = $1 WHERE id = $2`, [password, id]);

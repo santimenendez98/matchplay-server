@@ -1,6 +1,12 @@
 import { historyPaymentModel, refundBody } from "../types/Payment";
 import pool from "./connection";
 
+export const getAllPaymentsQuery = async (limit = 50, offset = 0) =>
+  pool.query<historyPaymentModel>(
+    `SELECT * FROM Payment ORDER BY payment_date DESC LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
+
 export const getPaymentByMatchAndAccount = async (
   match_id: string,
   account_id: string
@@ -35,13 +41,35 @@ export const getPaymentByIdQuery = async (payment_id: string) => {
   );
 };
 
+export const getPaymentsByAccountQuery = async (
+  account_id: string,
+  limit = 50,
+  offset = 0
+) => {
+  return pool.query<historyPaymentModel>(
+    `SELECT * FROM Payment WHERE user_id = $1
+     ORDER BY payment_date DESC LIMIT $2 OFFSET $3`,
+    [account_id, limit, offset]
+  );
+};
+
 export const updatePaymentStatusQuery = async (
   payment_id: string,
   status: "pending" | "completed" | "failed" | "cancelled"
 ) => {
-  pool.query(
-    `UPDATE Payment SET payment_status = $1 WHERE reservation_id = $2`,
+  return pool.query(
+    `UPDATE Payment SET payment_status = $1 WHERE id = $2`,
     [status, payment_id]
+  );
+};
+
+export const updatePaymentStatusByReservationQuery = async (
+  reservation_id: string,
+  status: "pending" | "completed" | "failed" | "cancelled"
+) => {
+  return pool.query(
+    `UPDATE Payment SET payment_status = $1 WHERE reservation_id = $2`,
+    [status, reservation_id]
   );
 };
 
@@ -85,7 +113,7 @@ export const createRefundQuery = async (data: refundBody) => {
 };
 
 export const updateStatusRefundQuery = async (data: refundBody) => {
-  pool.query(
+  return pool.query(
     `UPDATE Refund SET refund_status = $1, proof_refund = $2, refunded_by = $3 WHERE payment_id = $4`,
     [data.refund_status, data.proof_refund, data.refunded_by, data.payment_id]
   );

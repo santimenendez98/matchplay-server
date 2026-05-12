@@ -1,32 +1,99 @@
 # matchplay-server
 
-# Variables de entorno
+Backend Node.js + TypeScript + Express + PostgreSQL para **MatchPlay**, una
+plataforma de reservas y gestión de partidos en complejos deportivos.
 
-Para iniciar el proyecto configurar estas variables para poder conectar la base de datos postgreSQL con Supabase.
+> Documentación completa en [`DOCUMENTATION.md`](./DOCUMENTATION.md):
+> arquitectura, modelo de datos, listado de endpoints, flujos de negocio,
+> cron jobs, WebSockets, tests y mejoras recomendadas.
 
-PORT=3000<br>
-API_URL=https://localhost:<br>
-DB_USER=postgres<br>
-DB_HOST=db.gacldvrhdiqcpbzwaavn.supabase.co<br>
-DB_DATABASE=postgres<br>
-DB_PASSWORD=snmm1809<br>
-DB_PORT=5432<br>
-JWT_SECRET=probando<br>
-CORS_ORIGIN=\*<br>
-DATABASE_URL=postgresql://user:password@host:port/database<br>
-NODE_ENV=development<br>
-SSL_CERT_PATH=/path/to/certificate.crt<br>
-SSL_KEY_PATH=/path/to/private.key<br>
+## Quickstart
+
+```bash
+npm install
+# crear un .env (ver más abajo)
+npm run dev            # nodemon + ts-node-dev
+```
+
+### Scripts
+
+| Script                 | Descripción                                       |
+|------------------------|---------------------------------------------------|
+| `npm run dev`          | Levanta el server en modo desarrollo con nodemon. |
+| `npm run build`        | Compila TypeScript a `./dist`.                    |
+| `npm start`            | Ejecuta el build compilado (producción).          |
+| `npm test`             | Corre la suite de Jest.                           |
+| `npm run test:watch`   | Tests en modo watch.                              |
+| `npm run test:coverage`| Reporte de cobertura en `./coverage`.             |
+
+## Variables de entorno
+
+Copiar `.env.example` a `.env` y completar los valores. Variables principales:
+
+```env
+PORT=3000
+DATABASE_URL=postgresql://user:password@host:port/database
+NODE_ENV=development
+LOG_LEVEL=debug
+
+JWT_SECRET=replace-me
+JWT_ACCESS_TTL=1h
+JWT_REFRESH_TTL=30d
+
+CORS_ORIGIN=http://localhost:5173
+
 MERCADO_PAGO_ACCESS_TOKEN=your_mercadopago_access_token
 
-# MercadoPago Payment Method IDs:
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
-# - "visa" for Visa cards
+CRON_SECRET=replace-with-strong-secret
+# DISABLE_CRON=true   # serverless: cron via /api/cron/* endpoints
+```
 
-# - "master" for Mastercard
+## Cron (Vercel Hobby)
 
-# - "amex" for American Express
+Vercel Hobby solo permite crons diarios. El `vercel.json` declara
+`/api/cron/daily-maintenance` a las 03:00 (corre los tres jobs en
+secuencia). Para los jobs de alta frecuencia (cada 5 / 30 min) se incluye
+un workflow de GitHub Actions en `.github/workflows/cron.yml` — solo hace
+falta configurar dos secrets en el repo:
 
-# - "debit_card" for generic debit cards
+- `API_BASE_URL` — la URL pública del deploy (ej: `https://matchplay.vercel.app`).
+- `CRON_SECRET` — el mismo valor que el env var del backend.
 
-# - "credit_card" for generic credit cards
+Detalles en [`DOCUMENTATION.md#cron`](./DOCUMENTATION.md#cron).
+
+### MercadoPago Payment Method IDs
+
+- `debit_card` — débito genérico
+- `debvisa` / `debmaster` — Visa Débito / Mastercard Débito
+- `visa` / `master` / `amex` — solo para referencia (el backend solo acepta
+  payment methods cuyo ID empieza por `deb`).
+
+## Endpoints destacados
+
+- `POST /api/auth` — login (devuelve `token` y `refreshToken`).
+- `POST /api/auth/refresh` — renueva el access token.
+- `POST /api/auth/forgot-password` / `POST /api/auth/reset-password`.
+- `POST /api/account` — registro de usuario (responde con token).
+- `PATCH /api/account/me/password` — cambiar password autenticado.
+- `GET  /api/scheduleday/court/:courtId?date=YYYY-MM-DD` — slots disponibles.
+- `POST /api/reservation` — reservar (con `is_match` opcional para partidos).
+- `POST /api/match/join` / `/leave` / `/message` — gestión de partidos.
+- `POST /api/payment/pay` / `/cash` / `/bank-transfer` — pagos por canal.
+- `GET  /api/payment/upload/sign` — firma para upload directo a Cloudinary.
+- `GET  /api/reservation/account/me`, `/api/match/player/me`,
+  `/api/payment/account/me` — historial del usuario autenticado.
+
+Listado completo: [`DOCUMENTATION.md#tabla-de-endpoints`](./DOCUMENTATION.md#tabla-de-endpoints).
+
+## Tests
+
+```bash
+npm test
+```
+
+20 suites · 169 tests. Usan Jest + supertest con `pg`, `mercadopago`,
+`cloudinary` y `services/webSocket` mockeados — no requieren base de datos.

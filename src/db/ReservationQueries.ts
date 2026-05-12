@@ -2,11 +2,29 @@ import pool from "../db/connection";
 import { CancelModel } from "../types/CancelReservation";
 import { PreReserveModel, ReservationModel } from "../types/Reservation";
 
-export const getAllReservationsQuery = () =>
-  pool.query<ReservationModel>(`SELECT * FROM Reservation`);
+export const getAllReservationsQuery = (limit = 50, offset = 0) =>
+  pool.query<ReservationModel>(
+    `SELECT * FROM Reservation
+     ORDER BY reservation_date DESC, start_time DESC
+     LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
 
 export const getReservationWithIdQuery = (id: string) =>
   pool.query<ReservationModel>(`SELECT * FROM Reservation WHERE id = $1`, [id]);
+
+export const getReservationsByAccountQuery = (
+  account_id: string,
+  limit = 50,
+  offset = 0
+) =>
+  pool.query<ReservationModel>(
+    `SELECT * FROM Reservation
+     WHERE account_id = $1
+     ORDER BY reservation_date DESC, start_time DESC
+     LIMIT $2 OFFSET $3`,
+    [account_id, limit, offset]
+  );
 
 export const createReservationQuery = (reservation: ReservationModel) =>
   pool.query<ReservationModel>(

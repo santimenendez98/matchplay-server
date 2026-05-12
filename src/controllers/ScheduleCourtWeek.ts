@@ -89,8 +89,6 @@ export const createScheduleCourtWeek = async (
       if (targetDate.getDay() === day_of_week) {
         await generateScheduleForDay(targetDate);
       }
-      targetDate.setDate(today.getDate() + i);
-      await generateScheduleForDay(targetDate);
     }
 
     return res.status(201).json({
@@ -239,7 +237,6 @@ export const generateScheduleCourtWeek = async (
 
     for (let i = 0; i < 7; i++) {
       const date = addDays(today, i);
-      console.log(date.getDay());
       if (date.getDay() === day_of_week) {
         await generateScheduleForDay(date);
       }

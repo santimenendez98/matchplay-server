@@ -31,15 +31,19 @@ import {
 } from "../db/MatchQueries";
 import {
   createPaymentHistoryQuery,
+  getAllPaymentsQuery,
   getPaymentByIdQuery,
   getPaymentByReservationAndAccount,
+  getPaymentByReservation,
+  getPaymentsByAccountQuery,
   getRefundByPaymentIdQuery,
   updatePaymentStatusQuery,
   updateStatusRefundQuery,
 } from "../db/PaymentQueries";
 import { getCurrentTime } from "../services/addMinutes";
 import { errorResponseModel, successResponseModel } from "../types";
-import { verifyCloudinaryFile } from "../services/cloudinary";
+import { buildSignedUpload, verifyCloudinaryFile } from "../services/cloudinary";
+import { parsePagination } from "../services/pagination";
 
 // Generate debit payment
 export const createDebitPayment = async (
@@ -122,9 +126,6 @@ export const createDebitPayment = async (
           );
 
           // Create History Payment
-
-          console.log(paymentRequest);
-
           await createPaymentHistoryQuery({
             account_id: account.rows[0].id,
             reservation_id: reservation_id,
@@ -207,6 +208,23 @@ export const generateProof = async (
 ) => {
   try {
     const { mp_payment_id } = req.body;
+
+    // Ownership: a non-admin user can only request a PDF for a payment they
+    // paid for.
+    const isAdmin =
+      req.user?.rol === "admin" || req.user?.rol === "creator";
+    if (!isAdmin) {
+      // Look up the local Payment record by mp_payment_id to verify ownership.
+      const local = await getPaymentByIdQuery(String(mp_payment_id));
+      const matching = local.rows.find(
+        (p: any) => p.mp_payment_id === String(mp_payment_id)
+      );
+      if (matching && matching.paid_by && matching.paid_by !== req.user?.id) {
+        return res
+          .status(403)
+          .json({ message: "An error ocurred", error: "Forbidden" });
+      }
+    }
 
     const searchPayment = await getPayment(mp_payment_id);
 
@@ -561,6 +579,110 @@ export const createCashPayment = async (
     return res
       .status(400)
       .json({ error: "Error creating payment", message: err.message });
+  }
+};
+
+// Get all payments (admin/creator)
+export const getPayments = async (req: Request, res: Response) => {
+  try {
+    const { limit, offset } = parsePagination(req.query);
+    const result = await getAllPaymentsQuery(limit, offset);
+    res.status(200).json({ message: "Payment List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Get payment by id (admin/creator)
+export const getPaymentById = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const result = await getPaymentByIdQuery(id);
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Payment not found" });
+    }
+    res
+      .status(200)
+      .json({ message: "Payment found", data: result.rows[0] });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Get payments for an account (or "me" for the authenticated user)
+export const getPaymentsByAccount = async (
+  req: Request<{ accountId: string }>,
+  res: Response
+) => {
+  try {
+    const { accountId } = req.params;
+    const targetId = accountId === "me" ? req.user?.id : accountId;
+    if (!targetId) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Missing account id",
+      });
+    }
+    if (
+      accountId !== "me" &&
+      req.user?.id !== String(targetId) &&
+      req.user?.rol !== "admin" &&
+      req.user?.rol !== "creator"
+    ) {
+      return res.status(403).json({
+        message: "An error ocurred",
+        error: "Forbidden",
+      });
+    }
+    const { limit, offset } = parsePagination(req.query);
+    const result = await getPaymentsByAccountQuery(
+      String(targetId),
+      limit,
+      offset
+    );
+    res.status(200).json({ message: "Payment List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Build a signed upload payload so the frontend can upload directly to Cloudinary.
+export const signCloudinaryUpload = (
+  req: Request<{}, {}, {}, { folder?: string; public_id?: string }>,
+  res: Response
+) => {
+  try {
+    const folder = req.query.folder || "matchplay";
+    const payload = buildSignedUpload(folder, req.query.public_id);
+    res.status(200).json({ message: "Signed upload", data: payload });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Get all payments for a reservation (admins)
+export const getPaymentsByReservation = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const result = await getPaymentByReservation(id);
+    res
+      .status(200)
+      .json({ message: "Payment List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
   }
 };
 

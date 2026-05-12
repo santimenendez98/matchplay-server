@@ -40,8 +40,9 @@ export const getNext1Hour = () => {
 export function isWithin24Hours(reservationDate: string): boolean {
   const resDate = new Date(reservationDate);
   const current = new Date(getCurrentTime());
-  const diffMs = current.getTime() - resDate.getTime();
+  const diffMs = resDate.getTime() - current.getTime();
   const diffHours = diffMs / (1000 * 60 * 60);
+  // true when the reservation is less than 24 hours away (past or future)
   return diffHours <= 24;
 }
 

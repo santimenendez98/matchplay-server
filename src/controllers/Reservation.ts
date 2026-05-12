@@ -15,6 +15,7 @@ import {
   getAllReservationsQuery,
   createReservationQuery,
   getReservationWithIdQuery,
+  getReservationsByAccountQuery,
   createPreReserveQuery,
   updatePreReserveStatusQuery,
   updateReservationStatusQuery,
@@ -55,10 +56,12 @@ import {
   emitNotificationCourt,
 } from "../services/webSocket";
 import { getAccountByIdQuery } from "../db/AccountQueries";
+import { parsePagination } from "../services/pagination";
 import {
   createRefundQuery,
   getPaymentByReservation,
   getPaymentByReservationAndAccount,
+  updatePaymentStatusByReservationQuery,
   updatePaymentStatusQuery,
 } from "../db/PaymentQueries";
 import { refundBody } from "../types/Payment";
@@ -69,8 +72,88 @@ export const getReservations = async (
   res: Response<ReservationModelSuccess | errorResponseModel>
 ) => {
   try {
-    const result = await getAllReservationsQuery();
+    const { limit, offset } = parsePagination(req.query);
+    const result = await getAllReservationsQuery(limit, offset);
     res.status(200).json({ message: "Reservation List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ message: "Error fetching reservations", error: err.message });
+  }
+};
+
+// Get reservation by id
+export const getReservationById = async (
+  req: Request<{ id: string }>,
+  res: Response<ReservationGetModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { id } = req.params;
+    const result = await getReservationWithIdQuery(id);
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "Reservation not found",
+      });
+    }
+    const reservation = result.rows[0];
+    const isAdmin =
+      req.user?.rol === "admin" || req.user?.rol === "creator";
+    // For matches anyone authenticated can read; for plain reservations only
+    // the owner (or an admin) can.
+    if (!reservation.is_match && !isAdmin && req.user?.id !== reservation.account_id) {
+      return res
+        .status(403)
+        .json({ message: "An error ocurred", error: "Forbidden" });
+    }
+    res.status(200).json({
+      message: "Reservation found",
+      data: reservation,
+    });
+  } catch (error) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Get all reservations for the authenticated user (or for an account_id)
+export const getReservationsByAccount = async (
+  req: Request<{ accountId: string }>,
+  res: Response<ReservationModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { accountId } = req.params;
+    const targetId = accountId === "me" ? req.user?.id : accountId;
+    if (!targetId) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Missing account id",
+      });
+    }
+    // Non-admins cannot read other users' reservations
+    if (
+      accountId !== "me" &&
+      req.user?.id !== String(targetId) &&
+      req.user?.rol !== "admin" &&
+      req.user?.rol !== "creator"
+    ) {
+      return res.status(403).json({
+        message: "An error ocurred",
+        error: "Forbidden",
+      });
+    }
+    const { limit, offset } = parsePagination(req.query);
+    const result = await getReservationsByAccountQuery(
+      String(targetId),
+      limit,
+      offset
+    );
+    res
+      .status(200)
+      .json({ message: "Reservation List", data: result.rows });
   } catch (error) {
     const err = error as Error;
     res
@@ -387,7 +470,10 @@ export const cancelPreReservation = async (
         await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
         await updateStatusMatchQuery(match.rows[0].id, "cancelled");
         await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
-        await updatePaymentStatusQuery(reservation.rows[0].id, "cancelled");
+        await updatePaymentStatusByReservationQuery(
+          reservation.rows[0].id,
+          "cancelled"
+        );
 
         // Create Refund if payment exists
         const payment = await getPaymentByReservation(reservation_id);
@@ -430,12 +516,6 @@ export const cancelReservationRequest = async (
     const { reservation_id, requested_by, reason } = req.body;
 
     const reservation = await getReservationWithIdQuery(reservation_id);
-    const schedule = await getScheduleById(reservation.rows[0].schedule_id);
-    const scheduleReserve =
-      schedule.rows[0].schedule_date + " " + reservation.rows[0].start_time;
-    const getCancelRequest = await getCancelRequestByReserveQuery(
-      reservation_id
-    );
 
     //Check if the reservation exists
     if (reservation.rows.length === 0) {
@@ -443,6 +523,13 @@ export const cancelReservationRequest = async (
         .status(404)
         .json({ message: "An error ocurred", error: "Reservation not found" });
     }
+
+    const schedule = await getScheduleById(reservation.rows[0].schedule_id);
+    const scheduleReserve =
+      schedule.rows[0].schedule_date + " " + reservation.rows[0].start_time;
+    const getCancelRequest = await getCancelRequestByReserveQuery(
+      reservation_id
+    );
 
     //Check if the reservation is already cancelled
     if (reservation.rows[0].status.includes("cancelled")) {
@@ -509,6 +596,8 @@ export const cancelReservationRequest = async (
 
 export default {
   getReservations,
+  getReservationById,
+  getReservationsByAccount,
   createReservation,
   cancelReservation,
   cancelReservationRequest,

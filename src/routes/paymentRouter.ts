@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import { handleValidationErrors } from "../middleware/validatorErrors";
 import {
   confirmTransferPayment,
@@ -7,11 +7,73 @@ import {
   createCashPayment,
   createDebitPayment,
   generateProof,
+  getPaymentById,
+  getPayments,
+  getPaymentsByAccount,
+  getPaymentsByReservation,
   refundPayment,
+  signCloudinaryUpload,
 } from "../controllers/Payment";
 import { authMiddleware, rolMiddleware } from "../middleware";
 
 export const paymentRouter = Router();
+
+// List all payments (admin/creator only)
+paymentRouter.get(
+  "/",
+  authMiddleware,
+  rolMiddleware(["admin", "creator"]),
+  getPayments
+);
+
+// Build a signed Cloudinary upload payload so the frontend can upload
+// proofs of payment without exposing the API secret.
+paymentRouter.get(
+  "/upload/sign",
+  authMiddleware,
+  signCloudinaryUpload
+);
+
+// List payments for an account (use "me" for the authenticated user)
+paymentRouter.get(
+  "/account/:accountId",
+  param("accountId")
+    .notEmpty()
+    .withMessage("Account ID is required")
+    .isString()
+    .withMessage("Account ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  getPaymentsByAccount
+);
+
+// List payments for a reservation (admins)
+paymentRouter.get(
+  "/reservation/:id",
+  param("id")
+    .notEmpty()
+    .withMessage("Reservation ID is required")
+    .isString()
+    .withMessage("Reservation ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  rolMiddleware(["admin", "creator"]),
+  getPaymentsByReservation
+);
+
+// Get a single payment by id (admin/creator)
+paymentRouter.get(
+  "/:id",
+  param("id")
+    .notEmpty()
+    .withMessage("Payment ID is required")
+    .isString()
+    .withMessage("Payment ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  rolMiddleware(["admin", "creator"]),
+  getPaymentById
+);
 
 // Create debit payment
 paymentRouter.post(
@@ -51,9 +113,9 @@ paymentRouter.post(
     .withMessage("Identification number is required")
     .isString()
     .withMessage("Identification number must be a string"),
+  handleValidationErrors,
   authMiddleware,
   rolMiddleware(["user"]),
-  handleValidationErrors,
   createDebitPayment
 );
 
@@ -75,9 +137,9 @@ paymentRouter.post(
     .withMessage("Proof URL is required")
     .isString()
     .withMessage("Proof URL must be a string"),
+  handleValidationErrors,
   authMiddleware,
   rolMiddleware(["user"]),
-  handleValidationErrors,
   createBankTransfer
 );
 
@@ -94,9 +156,9 @@ paymentRouter.post(
     .withMessage("Status is required")
     .isIn(["completed", "failed"])
     .withMessage("Status must be either 'completed' or 'failed'"),
+  handleValidationErrors,
   authMiddleware,
   rolMiddleware(["admin"]),
-  handleValidationErrors,
   confirmTransferPayment
 );
 
@@ -127,9 +189,9 @@ paymentRouter.post(
     .withMessage("Account ID is required")
     .isString()
     .withMessage("Account ID must be a string"),
+  handleValidationErrors,
   authMiddleware,
   rolMiddleware(["user"]),
-  handleValidationErrors,
   createCashPayment
 );
 
@@ -156,9 +218,9 @@ paymentRouter.post(
     .withMessage("Refunded by is required")
     .isString()
     .withMessage("Refunded by must be a string"),
+  handleValidationErrors,
   authMiddleware,
   rolMiddleware(["admin"]),
-  handleValidationErrors,
   refundPayment
 );
 

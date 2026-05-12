@@ -4,6 +4,7 @@ import {
   createScheduleDay,
   deleteScheduleDay,
   updateScheduleDay,
+  getScheduleByCourtAndDate,
 } from "../controllers/ScheduleDay";
 import {
   getScheduleDayPrice,
@@ -20,26 +21,38 @@ export const scheduleDayRouter = Router();
 // Get all schedule days
 scheduleDayRouter.get("/", getScheduleDay);
 
+// Get the slots for a specific court on a given date (?date=YYYY-MM-DD)
+scheduleDayRouter.get(
+  "/court/:courtId",
+  param("courtId")
+    .notEmpty()
+    .withMessage("Court ID is required")
+    .isString()
+    .withMessage("Court ID must be a string"),
+  handleValidationErrors,
+  getScheduleByCourtAndDate
+);
+
 // Create a new schedule day
 scheduleDayRouter.post(
   "/",
   body("court_id")
-    .isEmpty()
+    .notEmpty()
     .withMessage("Court ID is required")
     .isString()
     .withMessage("Court ID must be a string"),
   body("schedule_date")
-    .isEmpty()
+    .notEmpty()
     .withMessage("Schedule date is required")
     .isISO8601()
     .withMessage("Schedule date must be a valid date (yyyy-mm-dd)"),
   body("start_time")
-    .isEmpty()
+    .notEmpty()
     .withMessage("Start time is required")
     .isString()
     .withMessage("Start time must be a string"),
   body("end_time")
-    .isEmpty()
+    .notEmpty()
     .withMessage("End time is required")
     .isString()
     .withMessage("End time must be a string"),
@@ -53,7 +66,7 @@ scheduleDayRouter.post(
 scheduleDayRouter.put(
   "/:id",
   param("id")
-    .isEmpty()
+    .notEmpty()
     .withMessage("ID is required")
     .isString()
     .withMessage("ID must be a string"),
@@ -83,7 +96,7 @@ scheduleDayRouter.put(
 scheduleDayRouter.delete(
   "/:id",
   param("id")
-    .isEmpty()
+    .notEmpty()
     .withMessage("ID is required")
     .isString()
     .withMessage("ID must be a string"),

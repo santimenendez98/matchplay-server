@@ -9,7 +9,8 @@ import {
 import handleExpiredPreReserves from "./cronjobs/preReserveCronJob";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { webSocketHandler } from "./services/webSocket";
+import { socketAuthMiddleware, webSocketHandler } from "./services/webSocket";
+import logger, { httpLogger } from "./services/logger";
 import cors from "cors";
 
 dotenv.config();
@@ -25,13 +26,14 @@ const origin = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()) || [];
 app.use(
   cors({
     origin: origin,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 app.use(express.json());
+app.use(httpLogger);
 
 // Rutas
 app.use("/api", router);
@@ -44,15 +46,22 @@ export const io = new Server(server, {
   },
 });
 
+io.use(socketAuthMiddleware);
 io.on("connection", webSocketHandler);
 
 // Conexión a DB y cron jobs
 server.listen(port, () => {
   pool
     .connect()
-    .then(() => console.log("Connected to the database successfully"));
-  console.log(`Server is running on ${port}`);
-  startScheduleCronJob();
-  handleExpiredPreReserves();
-  checkScheduleCronJob();
+    .then(() => logger.info("Connected to the database successfully"))
+    .catch((err) => logger.error({ err }, "Database connection failed"));
+  logger.info({ port }, "Server is running");
+
+  // node-cron does not run on serverless platforms (Vercel) — see
+  // /api/cron endpoints invoked by Vercel Cron.
+  if (process.env.DISABLE_CRON !== "true") {
+    startScheduleCronJob();
+    handleExpiredPreReserves();
+    checkScheduleCronJob();
+  }
 });
