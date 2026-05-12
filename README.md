@@ -52,6 +52,19 @@ CRON_SECRET=replace-with-strong-secret
 # DISABLE_CRON=true   # serverless: cron via /api/cron/* endpoints
 ```
 
+## Cron (Vercel Hobby)
+
+Vercel Hobby solo permite crons diarios. El `vercel.json` declara
+`/api/cron/daily-maintenance` a las 03:00 (corre los tres jobs en
+secuencia). Para los jobs de alta frecuencia (cada 5 / 30 min) se incluye
+un workflow de GitHub Actions en `.github/workflows/cron.yml` — solo hace
+falta configurar dos secrets en el repo:
+
+- `API_BASE_URL` — la URL pública del deploy (ej: `https://matchplay.vercel.app`).
+- `CRON_SECRET` — el mismo valor que el env var del backend.
+
+Detalles en [`DOCUMENTATION.md#cron`](./DOCUMENTATION.md#cron).
+
 ### MercadoPago Payment Method IDs
 
 - `debit_card` — débito genérico
@@ -82,5 +95,5 @@ Listado completo: [`DOCUMENTATION.md#tabla-de-endpoints`](./DOCUMENTATION.md#tab
 npm test
 ```
 
-20 suites · 167 tests. Usan Jest + supertest con `pg`, `mercadopago`,
+20 suites · 169 tests. Usan Jest + supertest con `pg`, `mercadopago`,
 `cloudinary` y `services/webSocket` mockeados — no requieren base de datos.

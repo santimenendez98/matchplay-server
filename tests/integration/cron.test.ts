@@ -76,3 +76,38 @@ describe("/api/cron/check-schedule-status", () => {
     expect(typeof res.body.data.checkedAt).toBe("string");
   });
 });
+
+describe("/api/cron/daily-maintenance", () => {
+  afterEach(() => resetQueryStubs());
+
+  it("requires the cron secret", async () => {
+    const res = await request(app).post("/api/cron/daily-maintenance");
+    expect(res.status).toBe(401);
+  });
+
+  it("runs check + generate + expired-pre-reserves in sequence", async () => {
+    setupQueryStubs([
+      // runCheckScheduleStatus -> UPDATE ScheduleCourt ...
+      {
+        match: "UPDATE ScheduleCourt SET is_available = FALSE",
+        result: { rows: [] },
+      },
+      // runGenerateUpcomingSchedule -> SELECT FROM WeekScheduleCourt
+      { match: "FROM WeekScheduleCourt WHERE day_of_week", result: { rows: [] } },
+      // runExpiredPreReservesJob -> UPDATE PreRegistration (no rows)
+      { match: "UPDATE PreRegistration", result: { rows: [] } },
+    ]);
+
+    const res = await request(app)
+      .post("/api/cron/daily-maintenance")
+      .set("Authorization", "Bearer test-cron-secret");
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(
+      expect.objectContaining({
+        checked: expect.any(Object),
+        generated: expect.any(Object),
+        expired: { processed: 0 },
+      })
+    );
+  });
+});

@@ -1,0 +1,42 @@
+# Hits the cron endpoints on the real schedule we want. Use this when
+# deploying to Vercel Hobby (which only allows daily crons) or anywhere
+# else that doesn't run node-cron in-process.
+#
+# Required GitHub Secrets:
+#   API_BASE_URL  e.g. https://matchplay.example.com
+#   CRON_SECRET   same value as the server's CRON_SECRET env var.
+
+name: Cron
+
+on:
+  schedule:
+    # Every 5 minutes — expired pre-reservations.
+    - cron: "*/5 * * * *"
+    # Every 30 minutes — schedule availability check.
+    - cron: "0,30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  expired-pre-reserves:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/5 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger expired-pre-reserves
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X POST "$API_BASE_URL/api/cron/expired-pre-reserves" \
+            -H "Authorization: Bearer $CRON_SECRET"
+
+  check-schedule-status:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0,30 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger check-schedule-status
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X POST "$API_BASE_URL/api/cron/check-schedule-status" \
+            -H "Authorization: Bearer $CRON_SECRET"

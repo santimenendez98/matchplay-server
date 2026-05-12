@@ -390,15 +390,39 @@ Prefijo base: `/api`.
 | POST | `/payment/proof`                         | ✓    | owner/admin   | PDF del comprobante MercadoPago.                             |
 | POST | `/payment/refund`                        | ✓    | admin         | Marca el refund como `completed`/`failed` + sube comprobante.|
 
-### Cron (Vercel Cron)
+### Cron
 
 Todos requieren `Authorization: Bearer <CRON_SECRET>`.
 
 | Verb | Path                              | Descripción                                                |
 |------|-----------------------------------|------------------------------------------------------------|
+| POST | `/cron/daily-maintenance`         | Corre los tres jobs en secuencia (uso en Vercel Hobby).    |
 | POST | `/cron/expired-pre-reserves`      | Cancela partidos cuya pre-reserva expiró.                  |
 | POST | `/cron/generate-schedule`         | Materializa los slots para hoy + 6 días desde la plantilla.|
 | POST | `/cron/check-schedule-status`     | Marca como no disponibles los slots ya pasados.            |
+
+#### Plan de scheduling
+
+**Vercel Hobby** solo permite crons diarios — por eso `vercel.json` solo
+declara un cron diario a `/cron/daily-maintenance` (03:00) que dispara los
+tres jobs en secuencia. Una vez al día queda todo limpio.
+
+Para **alta frecuencia** (cancelar partidos cuya pre-reserva venció a la
+hora) hay tres opciones:
+
+1. **GitHub Actions** (gratis, sin tope diario). El repo trae
+   `.github/workflows/cron.yml` que pega a `/cron/expired-pre-reserves`
+   cada 5 min y `/cron/check-schedule-status` cada 30 min. Configurar dos
+   GitHub Secrets:
+   - `API_BASE_URL` — URL pública del backend desplegado.
+   - `CRON_SECRET` — mismo valor que el env var del server.
+2. **Servicios externos** como cron-job.org / EasyCron apuntando a los
+   mismos endpoints.
+3. **Vercel Pro** — desbloquea crons con cualquier expresión.
+
+Si **no** estás en serverless (VPS, Render, Railway, etc.), dejá
+`DISABLE_CRON` sin setear y `node-cron` corre los tres jobs in-process
+con los intervalos originales (cada 5 min, 30 min y a la 00:00).
 
 ---
 
@@ -518,7 +542,10 @@ npm run test:coverage   # cobertura HTML en ./coverage
 - **Socket.IO JWT auth**: `io.use(socketAuthMiddleware)` rechaza
   conexiones sin token. `JoinAdmin` además exige `rol in (admin, creator)`.
 - **Cron compatible con Vercel**: endpoints `/api/cron/*` protegidos por
-  `CRON_SECRET` y `vercel.json` con la sección `crons`. Setear
+  `CRON_SECRET`. `vercel.json` declara un único cron diario a
+  `/cron/daily-maintenance` (compatible con Hobby plan, que solo permite
+  ejecuciones diarias). Para los jobs que necesitan correr cada 5 / 30
+  min, el repo incluye `.github/workflows/cron.yml`. Setear
   `DISABLE_CRON=true` cuando se desplegue serverless.
 - Nuevos GETs: `/court/:id`, `/court/complex/:complexId`, `/sport/:id`.
 

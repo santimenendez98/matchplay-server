@@ -75,4 +75,29 @@ cronRouter.post("/check-schedule-status", cronAuth, async (_req, res) => {
   }
 });
 
+// Runs all jobs in sequence. Vercel Hobby only allows daily crons, so this
+// endpoint exists to combine all maintenance into a single daily call. For
+// finer schedules (every 5/30 min) use GitHub Actions or another scheduler
+// hitting the individual endpoints above.
+cronRouter.post("/daily-maintenance", cronAuth, async (_req, res) => {
+  try {
+    const checked = await runCheckScheduleStatus();
+    const generated = await runGenerateUpcomingSchedule();
+    const expired = await runExpiredPreReservesJob();
+    res.status(200).json({
+      message: "ok",
+      data: { checked, generated, expired },
+    });
+  } catch (error) {
+    logger.error(
+      { err: (error as Error).message },
+      "cron: daily-maintenance failed"
+    );
+    res.status(500).json({
+      message: "An error occurred",
+      error: (error as Error).message,
+    });
+  }
+});
+
 export default cronRouter;
