@@ -28,21 +28,29 @@ npm run dev            # nodemon + ts-node-dev
 
 ## Variables de entorno
 
-Crear un archivo `.env` (no se commitea, está en `.gitignore`):
+Copiar `.env.example` a `.env` y completar los valores. Variables principales:
 
 ```env
 PORT=3000
 DATABASE_URL=postgresql://user:password@host:port/database
 NODE_ENV=development
-JWT_SECRET=replace-me
-CORS_ORIGIN=http://localhost:5173
-MERCADO_PAGO_ACCESS_TOKEN=your_mercadopago_access_token
-```
+LOG_LEVEL=debug
 
-> ⚠️ Las credenciales actuales de Cloudinary están hardcodeadas en
-> `src/services/cloudinary.ts`. Antes de pasar a producción rotarlas y
-> moverlas a variables de entorno — ver "Mejoras recomendadas" en la
-> documentación.
+JWT_SECRET=replace-me
+JWT_ACCESS_TTL=1h
+JWT_REFRESH_TTL=30d
+
+CORS_ORIGIN=http://localhost:5173
+
+MERCADO_PAGO_ACCESS_TOKEN=your_mercadopago_access_token
+
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+CRON_SECRET=replace-with-strong-secret
+# DISABLE_CRON=true   # serverless: cron via /api/cron/* endpoints
+```
 
 ### MercadoPago Payment Method IDs
 
@@ -53,12 +61,16 @@ MERCADO_PAGO_ACCESS_TOKEN=your_mercadopago_access_token
 
 ## Endpoints destacados
 
-- `POST /api/auth` — login (JWT).
-- `POST /api/account` — registro de usuario.
+- `POST /api/auth` — login (devuelve `token` y `refreshToken`).
+- `POST /api/auth/refresh` — renueva el access token.
+- `POST /api/auth/forgot-password` / `POST /api/auth/reset-password`.
+- `POST /api/account` — registro de usuario (responde con token).
+- `PATCH /api/account/me/password` — cambiar password autenticado.
 - `GET  /api/scheduleday/court/:courtId?date=YYYY-MM-DD` — slots disponibles.
 - `POST /api/reservation` — reservar (con `is_match` opcional para partidos).
 - `POST /api/match/join` / `/leave` / `/message` — gestión de partidos.
 - `POST /api/payment/pay` / `/cash` / `/bank-transfer` — pagos por canal.
+- `GET  /api/payment/upload/sign` — firma para upload directo a Cloudinary.
 - `GET  /api/reservation/account/me`, `/api/match/player/me`,
   `/api/payment/account/me` — historial del usuario autenticado.
 
@@ -70,5 +82,5 @@ Listado completo: [`DOCUMENTATION.md#tabla-de-endpoints`](./DOCUMENTATION.md#tab
 npm test
 ```
 
-15 suites · 122 tests. Usan Jest + supertest con `pg`, `mercadopago`,
+20 suites · 167 tests. Usan Jest + supertest con `pg`, `mercadopago`,
 `cloudinary` y `services/webSocket` mockeados — no requieren base de datos.

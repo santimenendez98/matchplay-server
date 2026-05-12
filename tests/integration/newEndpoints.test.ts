@@ -40,18 +40,64 @@ describe("New endpoints", () => {
       expect(res.status).toBe(404);
     });
 
-    it("returns the reservation", async () => {
+    it("returns the reservation to its owner", async () => {
       setupQueryStubs([
         {
           match: "FROM Reservation WHERE id",
-          result: { rows: [{ id: "1", status: "pending" }] },
+          result: {
+            rows: [
+              {
+                id: "1",
+                status: "pending",
+                account_id: "7",
+                is_match: false,
+              },
+            ],
+          },
         },
       ]);
       const res = await request(app)
         .get("/api/reservation/1")
-        .set("Authorization", bearer("1", "user"));
+        .set("Authorization", bearer("7", "user"));
       expect(res.status).toBe(200);
       expect(res.body.data).toMatchObject({ id: "1" });
+    });
+
+    it("rejects another user from reading someone's reservation", async () => {
+      setupQueryStubs([
+        {
+          match: "FROM Reservation WHERE id",
+          result: {
+            rows: [
+              {
+                id: "1",
+                status: "pending",
+                account_id: "7",
+                is_match: false,
+              },
+            ],
+          },
+        },
+      ]);
+      const res = await request(app)
+        .get("/api/reservation/1")
+        .set("Authorization", bearer("9", "user"));
+      expect(res.status).toBe(403);
+    });
+
+    it("admin can read any reservation", async () => {
+      setupQueryStubs([
+        {
+          match: "FROM Reservation WHERE id",
+          result: {
+            rows: [{ id: "1", account_id: "7", is_match: false }],
+          },
+        },
+      ]);
+      const res = await request(app)
+        .get("/api/reservation/1")
+        .set("Authorization", bearer("99", "admin"));
+      expect(res.status).toBe(200);
     });
   });
 
@@ -59,7 +105,7 @@ describe("New endpoints", () => {
     it("returns the caller's reservations", async () => {
       setupQueryStubs([
         {
-          match: "FROM Reservation WHERE account_id",
+          match: /FROM Reservation\s+WHERE account_id/,
           result: {
             rows: [
               { id: "1", account_id: "7" },

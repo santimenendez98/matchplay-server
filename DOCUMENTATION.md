@@ -104,20 +104,25 @@ tests/
 
 ## Variables de entorno
 
-Crear un `.env` (no se commitea — está en `.gitignore`):
+Crear un `.env` (no se commitea — está en `.gitignore`). Hay un
+`.env.example` con todas las llaves.
 
-| Variable                      | Descripción                                                      |
-|-------------------------------|------------------------------------------------------------------|
-| `PORT`                        | Puerto HTTP (default 3000).                                      |
-| `DATABASE_URL`                | Cadena de conexión Postgres (Supabase).                          |
-| `NODE_ENV`                    | `development` / `production` / `test`. Activa SSL en producción. |
-| `JWT_SECRET`                  | Secreto para firmar los JWTs.                                    |
-| `CORS_ORIGIN`                 | Lista separada por comas con los orígenes permitidos.            |
-| `MERCADO_PAGO_ACCESS_TOKEN`   | Token de acceso de MercadoPago.                                  |
-
-> Las credenciales de Cloudinary están hardcodeadas en
-> `src/services/cloudinary.ts`. **Esto debe migrarse a env vars** —
-> ver sección [Mejoras recomendadas](#mejoras-recomendadas).
+| Variable                      | Descripción                                                                |
+|-------------------------------|----------------------------------------------------------------------------|
+| `PORT`                        | Puerto HTTP (default 3000).                                                |
+| `DATABASE_URL`                | Cadena de conexión Postgres (Supabase).                                    |
+| `NODE_ENV`                    | `development` / `production` / `test`. Activa SSL en producción.           |
+| `LOG_LEVEL`                   | `debug` / `info` / `warn` / `error` (default según `NODE_ENV`).            |
+| `JWT_SECRET`                  | Secreto para firmar los JWTs.                                              |
+| `JWT_ACCESS_TTL`              | Vida del access token (default `1h`).                                      |
+| `JWT_REFRESH_TTL`             | Vida del refresh token (default `30d`).                                    |
+| `CORS_ORIGIN`                 | Lista separada por comas con los orígenes permitidos.                      |
+| `MERCADO_PAGO_ACCESS_TOKEN`   | Token de acceso de MercadoPago.                                            |
+| `CLOUDINARY_CLOUD_NAME`       | Nombre del cloud de Cloudinary.                                            |
+| `CLOUDINARY_API_KEY`          | API key de Cloudinary.                                                     |
+| `CLOUDINARY_API_SECRET`       | API secret de Cloudinary (usado para firmar uploads).                      |
+| `CRON_SECRET`                 | Bearer secret para los endpoints `/api/cron/*` (Vercel Cron).              |
+| `DISABLE_CRON`                | Si es `true`, no se inicia `node-cron` (modo serverless).                  |
 
 ---
 
@@ -268,19 +273,24 @@ Prefijo base: `/api`.
 
 ### Auth
 
-| Verb | Path      | Auth | Rol | Descripción                       |
-|------|-----------|------|-----|-----------------------------------|
-| POST | `/auth`   | —    | —   | Login. Body `{ email, password }` |
+| Verb | Path                       | Auth | Rol | Descripción                                                              |
+|------|----------------------------|------|-----|--------------------------------------------------------------------------|
+| POST | `/auth`                    | —    | —   | Login. Body `{ email, password }`. Devuelve `token` + `refreshToken`.    |
+| POST | `/auth/refresh`            | —    | —   | Refresh: `{ refreshToken }` → nuevo access + refresh.                    |
+| POST | `/auth/forgot-password`    | —    | —   | `{ email }`. Responde siempre 200 (no email enumeration).                |
+| POST | `/auth/reset-password`     | —    | —   | `{ token, new_password }`. Token recibido por email (>=8 chars).         |
 
 ### Account
 
-| Verb   | Path             | Auth | Rol           | Descripción                                    |
-|--------|------------------|------|---------------|------------------------------------------------|
-| POST   | `/account`       | —    | —             | Alta de usuario (registro público).            |
-| GET    | `/account`       | ✓    | creator       | Lista todas las cuentas.                       |
-| GET    | `/account/:id`   | ✓    | creator       | Cuenta por id.                                 |
-| PUT    | `/account/:id`   | ✓    | user          | Edita nombre/email/birthdate/phone.            |
-| DELETE | `/account/:id`   | ✓    | user, admin   | Borra cuenta.                                  |
+| Verb   | Path                          | Auth | Rol           | Descripción                                                              |
+|--------|-------------------------------|------|---------------|--------------------------------------------------------------------------|
+| POST   | `/account`                    | —    | —             | Alta de usuario (registro público). Siempre crea `user`. Devuelve token. |
+| POST   | `/account/admin`              | ✓    | creator       | Alta de cuenta `admin` por el creator.                                   |
+| PATCH  | `/account/me/password`        | ✓    | any           | Cambia password propio: `{ current_password, new_password }`.            |
+| GET    | `/account`                    | ✓    | creator       | Lista todas las cuentas.                                                 |
+| GET    | `/account/:id`                | ✓    | creator       | Cuenta por id.                                                           |
+| PUT    | `/account/:id`                | ✓    | user, admin   | Edita nombre/email/birthdate/phone.                                      |
+| DELETE | `/account/:id`                | ✓    | user, admin   | Borra cuenta.                                                            |
 
 ### Complex
 
@@ -293,18 +303,21 @@ Prefijo base: `/api`.
 
 ### Court
 
-| Verb   | Path             | Auth | Rol   | Descripción                |
-|--------|------------------|------|-------|----------------------------|
-| GET    | `/court`         | ✓    | any   | Lista canchas.             |
-| POST   | `/court`         | ✓    | admin | Crea cancha.               |
-| PUT    | `/court/:id`     | ✓    | admin | Actualiza nombre/imagen.   |
-| DELETE | `/court/:id`     | ✓    | admin | Borra cancha.              |
+| Verb   | Path                              | Auth | Rol   | Descripción                |
+|--------|-----------------------------------|------|-------|----------------------------|
+| GET    | `/court`                          | ✓    | any   | Lista canchas (paginado).  |
+| GET    | `/court/:id`                      | ✓    | any   | Detalle de una cancha.     |
+| GET    | `/court/complex/:complexId`       | ✓    | any   | Canchas de un complejo.    |
+| POST   | `/court`                          | ✓    | admin | Crea cancha.               |
+| PUT    | `/court/:id`                      | ✓    | admin | Actualiza nombre/imagen.   |
+| DELETE | `/court/:id`                      | ✓    | admin | Borra cancha.              |
 
 ### Sport
 
 | Verb   | Path             | Auth | Rol     | Descripción                |
 |--------|------------------|------|---------|----------------------------|
 | GET    | `/sport`         | ✓    | any     | Lista deportes.            |
+| GET    | `/sport/:id`     | ✓    | any     | Detalle de un deporte.     |
 | POST   | `/sport`         | ✓    | creator | Crea deporte.              |
 | DELETE | `/sport/:id`     | ✓    | creator | Borra deporte.             |
 
@@ -365,16 +378,27 @@ Prefijo base: `/api`.
 
 | Verb | Path                                     | Auth | Rol           | Descripción                                                  |
 |------|------------------------------------------|------|---------------|--------------------------------------------------------------|
-| GET  | `/payment`                               | ✓    | admin, creator| Lista todos los pagos del sistema.                           |
+| GET  | `/payment`                               | ✓    | admin, creator| Lista todos los pagos del sistema (paginado).                |
 | GET  | `/payment/:id`                           | ✓    | admin, creator| Detalle de un pago.                                          |
-| GET  | `/payment/account/:accountId` (o `me`)   | ✓    | any           | Listado de pagos del usuario.                                |
+| GET  | `/payment/account/:accountId` (o `me`)   | ✓    | owner/admin   | Listado de pagos del usuario (paginado).                     |
 | GET  | `/payment/reservation/:id`               | ✓    | admin, creator| Listado de pagos por reserva.                                |
+| GET  | `/payment/upload/sign?folder=...`        | ✓    | any           | Firma para upload directo a Cloudinary desde el frontend.    |
 | POST | `/payment/pay`                           | ✓    | user          | Pago con tarjeta de débito vía MercadoPago.                  |
 | POST | `/payment/bank-transfer`                 | ✓    | user          | Crea pago `pending` con `proof_url` (Cloudinary).            |
 | POST | `/payment/bank-transfer/confirm`         | ✓    | admin         | Confirma/rechaza la transferencia.                           |
 | POST | `/payment/cash`                          | ✓    | user          | Registra pago en efectivo (confirma reserva).                |
-| POST | `/payment/proof`                         | ✓    | user          | PDF del comprobante MercadoPago.                             |
+| POST | `/payment/proof`                         | ✓    | owner/admin   | PDF del comprobante MercadoPago.                             |
 | POST | `/payment/refund`                        | ✓    | admin         | Marca el refund como `completed`/`failed` + sube comprobante.|
+
+### Cron (Vercel Cron)
+
+Todos requieren `Authorization: Bearer <CRON_SECRET>`.
+
+| Verb | Path                              | Descripción                                                |
+|------|-----------------------------------|------------------------------------------------------------|
+| POST | `/cron/expired-pre-reserves`      | Cancela partidos cuya pre-reserva expiró.                  |
+| POST | `/cron/generate-schedule`         | Materializa los slots para hoy + 6 días desde la plantilla.|
+| POST | `/cron/check-schedule-status`     | Marca como no disponibles los slots ya pasados.            |
 
 ---
 
@@ -442,13 +466,15 @@ npm run test:coverage   # cobertura HTML en ./coverage
 
 ### Cobertura actual
 
-15 suites · 122 tests · 100% verde. Cubre:
+20 suites · 167 tests · 100% verde. Cubre:
 
-- Unit: `jwtService`, `bcrypService`, `addMinutes`, `authMiddleware`,
-  `rolMiddleware`, `handleValidationErrors`.
-- Integración (vía supertest): `auth`, `account`, `sport`, `complex`, `court`,
-  `reservation`, `match`, `payment`, `scheduleDay`, `scheduleCourtWeek`,
-  y endpoints nuevos.
+- Unit: `jwtService`, `bcrypService`, `addMinutes`, `pagination`,
+  `authMiddleware`, `rolMiddleware`, `handleValidationErrors`.
+- Integración (vía supertest): `auth` (login + refresh + forgot/reset),
+  `account` (signup + admin-create + change-password), `sport`, `complex`,
+  `court` (+ get by id + by complex), `reservation` (+ ownership),
+  `match`, `payment` (+ list-all + signed upload), `scheduleDay`,
+  `scheduleCourtWeek`, `cron`, y nuevos endpoints.
 
 ### Cómo agregar más tests
 
@@ -463,77 +489,59 @@ npm run test:coverage   # cobertura HTML en ./coverage
 
 ## Mejoras recomendadas
 
-Estas son las mejoras que detecté revisando el código (no son críticas, pero
-sí prioritarias).
+### Resueltas en esta PR
 
-### Seguridad
+- **Credenciales de Cloudinary** migradas a env vars (`CLOUDINARY_*`).
+- **`POST /account`** ya no permite escalar a `admin`; existe
+  `POST /account/admin` solo para `creator`. La respuesta incluye `token` y
+  `refreshToken`.
+- **Ownership** en `/reservation/:id`, `/reservation/account/:id`,
+  `/match/player/:id`, `/payment/account/:id`, `/payment/proof`: un usuario
+  solo puede acceder a recursos propios; admin/creator pueden ver todo.
+- **JWT corto + refresh**: `JWT_ACCESS_TTL=1h`, `JWT_REFRESH_TTL=30d` con
+  `POST /auth/refresh`.
+- **Reset de password**: `POST /auth/forgot-password` y
+  `POST /auth/reset-password` con tabla `PasswordResetToken`. El controller
+  loguea el token vía pino y, sólo cuando `NODE_ENV !== "production"`, lo
+  retorna en la respuesta para facilitar testing. **En producción**
+  conectar un proveedor de email (SendGrid, Resend, etc.) en
+  `forgotPasswordController`.
+- **PATCH `/account/me/password`** para cambiar password autenticado.
+- **Cloudinary signed upload** vía `GET /payment/upload/sign` — el frontend
+  obtiene `{ signature, timestamp, folder, api_key, cloud_name }` y sube
+  directo a Cloudinary sin tocar el secret.
+- **Paginación** (`?limit` / `?offset`, default 50, máximo 200) en
+  `/reservation`, `/reservation/account`, `/match`, `/match/player`,
+  `/payment`, `/payment/account`, `/court`.
+- **Logging estructurado** con `pino` + `pino-http` y redacción de campos
+  sensibles (`authorization`, `password`, `token`).
+- **Socket.IO JWT auth**: `io.use(socketAuthMiddleware)` rechaza
+  conexiones sin token. `JoinAdmin` además exige `rol in (admin, creator)`.
+- **Cron compatible con Vercel**: endpoints `/api/cron/*` protegidos por
+  `CRON_SECRET` y `vercel.json` con la sección `crons`. Setear
+  `DISABLE_CRON=true` cuando se desplegue serverless.
+- Nuevos GETs: `/court/:id`, `/court/complex/:complexId`, `/sport/:id`.
 
-1. **Credenciales de Cloudinary hardcodeadas** en `src/services/cloudinary.ts`.
-   El `api_secret` está en el repo y por lo tanto en el historial de Git. Hay
-   que rotarlo y leerlo de `process.env.CLOUDINARY_*`.
-2. **Variables sensibles en el README**: el README actual incluye una contraseña
-   de Supabase de ejemplo. Aunque parezca un placeholder, conviene cambiarla y
-   no documentar credenciales reales.
-3. **Validación de propiedad en endpoints de pago/reserva.** Hoy un usuario
-   autenticado puede pedir el comprobante (`/payment/proof`) o ver el detalle
-   de la reserva de otro. Agregar checks contra `req.user.id`.
-4. **`account_type` en `POST /account`** — actualmente cualquiera puede
-   registrarse como `admin` enviando `account_type: "admin"`. Limitar a
-   `"user"` y delegar la creación de admins a un endpoint con
-   `rolMiddleware(["creator"])`.
-5. **Rate limiting + helmet** — falta middleware básico de protección. Sugiero
-   `express-rate-limit` para `/auth` y `helmet` global.
-6. **JWT con `expiresIn: "30d"`** es muy largo para sesiones de usuario sin
-   refresh token. Considerar tokens cortos + refresh.
+### Pendientes (no bloquean al frontend)
 
-### Calidad / mantenibilidad
-
-7. **Transacciones SQL.** Operaciones como `createReservation` (que escribe en
-   `Reservation`, `Match`, `PreRegistration`, `MatchPlayer` y actualiza dos
-   `ScheduleCourt`) deberían ir dentro de una transacción `BEGIN/COMMIT` para
-   evitar estados inconsistentes ante un fallo a mitad del flujo.
-8. **`updatePaymentStatusQuery` ya filtra por `id`** (lo arreglé), pero la
-   lógica de cancelación de un partido ahora usa
-   `updatePaymentStatusByReservationQuery` que cancela TODOS los pagos. Validar
-   manualmente que sea el comportamiento esperado.
-9. **`Match.deleteMatchQuery`** y `deleteReservationQuery` no borran en cascada
-   `Payment`, `Refund`, `MessageMatch`, etc. Si bien hoy no se llama
-   directamente excepto en `leaveMatch` cuando `current_players=0`, conviene
-   o bien usar `ON DELETE CASCADE` en el DDL o agregar borrado explícito.
-10. **Búsqueda y paginación**: `GET /reservation`, `/match`, `/court`, etc.
-    devuelven todo sin paginar. Cuando crezca el volumen, agregar `?limit`,
-    `?offset` y filtros.
-11. **Logging estructurado**: hoy todo es `console.log`. Sugiero `pino` o
-    `winston` con niveles + un middleware HTTP (morgan).
-12. **Sanitización del HTML del comprobante PDF**: los campos como
-    `cardholder_name`, `email` o `description` se inyectan en el HTML sin
-    escapar. Aunque venga de MercadoPago, conviene escapar para evitar HTML
-    injection si en el futuro estos valores los controla el usuario.
-13. **`generateScheduleCourtWeek`** genera 14 inserciones (siete fechas más el
-    duplicado que estaba). Lo arreglé pero validar que la combinación de
-    `INSERT` por cada día no triplique los slots en producción.
-14. **Cron jobs en producción serverless (Vercel)**. `node-cron` requiere un
-    proceso persistente; en Vercel funciona solo durante la vida útil de cada
-    invocación. Para entornos serverless mover a Vercel Cron / GitHub Actions.
-
-### UX / API
-
-15. **`POST /account` debería devolver un token** además del registro
-    creado, para evitar un segundo round-trip a `/auth`.
-16. **Cancelación con motivo**: hoy `cancelReservation` (admin) no pide
-    `reason` aunque el modelo lo permite. Sería útil agregarlo.
-17. **`leaveMatch` cuando queda solo el creator**: si todos los demás se van
-    y el creator no quiere seguir, no puede cancelar de forma directa. Hoy
-    debe usar `/reservation/cancelprereservation`. Vale la pena documentarlo
-    o exponer un endpoint específico `POST /match/:id/cancel`.
-18. **WebSocket auth**: hoy el `io.on("connection", …)` no valida el JWT.
-    Cualquier cliente puede unirse a las salas `admins`, `match_<id>`, etc.
-    Agregar un middleware `io.use((socket, next) => verifyToken(...))`.
-19. **Devolver fechas en UTC ISO 8601** en lugar del formato local
-    Montevideo. Las cron jobs y comparaciones internas pueden quedar en
-    Montevideo, pero la API debería ser timezone-agnostic.
-20. **OpenAPI/Swagger**: con el contrato ya estable, generar un `openapi.yml`
-    documenta y permite generar clients automáticos.
+1. **Transacciones SQL** en `createReservation` (escribe en `Reservation`,
+   `Match`, `PreRegistration`, `MatchPlayer`, `ScheduleCourt`). Hoy si una
+   query a mitad falla quedan inconsistencias. Envolver en
+   `BEGIN/COMMIT` usando un client del pool.
+2. **`Match.deleteMatchQuery` / `deleteReservationQuery`** no borran en
+   cascada `Payment`, `Refund`, `MessageMatch`. Agregar `ON DELETE CASCADE`
+   al DDL o borrado explícito.
+3. **Filtros** además de paginación (por status, court, fecha, etc.) en los
+   listados grandes.
+4. **Sanitización HTML** del comprobante PDF (`mercadoPago.ts`).
+5. **Rate limiting + helmet** (`express-rate-limit` para `/auth`,
+   `helmet` global).
+6. **Email real para reset de password**: conectar SendGrid/Resend.
+7. **Devolver fechas en UTC ISO-8601** en vez de Montevideo local en la
+   API (mantener Montevideo internamente para comparar contra slots).
+8. **OpenAPI/Swagger** para generar clientes tipados.
+9. **Cancelación con motivo** en `cancelReservation` (admin).
+10. **`POST /match/:id/cancel`** dedicado para el creador del partido.
 
 ### Bugs corregidos en esta rama
 

@@ -12,6 +12,7 @@ import {
   getPaymentsByAccount,
   getPaymentsByReservation,
   refundPayment,
+  signCloudinaryUpload,
 } from "../controllers/Payment";
 import { authMiddleware, rolMiddleware } from "../middleware";
 
@@ -23,6 +24,14 @@ paymentRouter.get(
   authMiddleware,
   rolMiddleware(["admin", "creator"]),
   getPayments
+);
+
+// Build a signed Cloudinary upload payload so the frontend can upload
+// proofs of payment without exposing the API secret.
+paymentRouter.get(
+  "/upload/sign",
+  authMiddleware,
+  signCloudinaryUpload
 );
 
 // List payments for an account (use "me" for the authenticated user)

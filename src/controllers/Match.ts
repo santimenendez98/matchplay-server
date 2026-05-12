@@ -31,13 +31,15 @@ import {
 } from "../db/ReservationQueries";
 import { getCurrentTime } from "../services/addMinutes";
 import { emitMessageToMatch } from "../services/webSocket";
+import { parsePagination } from "../services/pagination";
 
 export const getMatches = async (
   req: Request,
   res: Response<MatchModelSuccess | errorResponseModel>
 ) => {
   try {
-    const result = await getMatchesQuery();
+    const { limit, offset } = parsePagination(req.query);
+    const result = await getMatchesQuery(limit, offset);
     res.status(200).json({ message: "Match List", data: result.rows });
   } catch (error) {
     const err = error as Error;
@@ -97,7 +99,23 @@ export const getMatchesByPlayer = async (
         error: "Missing player id",
       });
     }
-    const matches = await getMatchesByPlayerQuery(String(targetId));
+    if (
+      playerId !== "me" &&
+      req.user?.id !== String(targetId) &&
+      req.user?.rol !== "admin" &&
+      req.user?.rol !== "creator"
+    ) {
+      return res.status(403).json({
+        message: "An error ocurred",
+        error: "Forbidden",
+      });
+    }
+    const { limit, offset } = parsePagination(req.query);
+    const matches = await getMatchesByPlayerQuery(
+      String(targetId),
+      limit,
+      offset
+    );
     res.status(200).json({ message: "Match List", data: matches.rows });
   } catch (error) {
     const err = error as Error;

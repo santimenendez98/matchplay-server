@@ -1,5 +1,9 @@
 import { Request, Response } from "express";
-import { hashPassword } from "../services/bcrypService";
+import { hashPassword, verifyPassword } from "../services/bcrypService";
+import {
+  generateRefreshToken,
+  generateToken,
+} from "../services/jwtService";
 import {
   AccountModel,
   AccountModelSuccess,
@@ -12,6 +16,7 @@ import {
   getAccountByIdQuery,
   createAccountQuery,
   deleteAccountQuery,
+  updatePasswordQuery,
   updateAccoutQuery,
 } from "../db/AccountQueries";
 
@@ -47,11 +52,12 @@ export const getAccountById = async (
   }
 };
 
+// Public signup: only `user` accounts can be created here.
 export const createAccount = async (
   req: Request<{}, {}, AccountModel>,
-  res: Response<AccountGetModelSuccess | errorResponseModel>
+  res: Response
 ) => {
-  const { name, email, password, birthdate, phone, account_type } = req.body;
+  const { name, email, password, birthdate, phone } = req.body;
   try {
     const hashedPassword = await hashPassword(password);
     const result = await createAccountQuery({
@@ -60,13 +66,87 @@ export const createAccount = async (
       password: hashedPassword,
       birthdate,
       phone,
-      account_type,
+      account_type: "user",
     });
+    const account = result.rows[0];
+    const token = generateToken(account.id!, "user");
+    const refreshToken = generateRefreshToken(account.id!, "user");
+
+    // never leak the password hash
+    const { password: _omit, ...safeAccount } = account;
 
     res.status(201).json({
       message: "Account created successfully",
-      data: result.rows[0],
+      data: {
+        account: safeAccount,
+        token,
+        refreshToken,
+        rol: "user",
+      },
     });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Admin-only: creator can register `admin` accounts for complex owners.
+export const createAdminAccount = async (
+  req: Request<{}, {}, AccountModel>,
+  res: Response
+) => {
+  const { name, email, password, birthdate, phone } = req.body;
+  try {
+    const hashedPassword = await hashPassword(password);
+    const result = await createAccountQuery({
+      name,
+      email,
+      password: hashedPassword,
+      birthdate,
+      phone,
+      account_type: "admin",
+    });
+    const { password: _omit, ...safeAccount } = result.rows[0];
+
+    res.status(201).json({
+      message: "Admin account created successfully",
+      data: safeAccount,
+    });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Change password for the authenticated user.
+export const changePassword = async (
+  req: Request<{}, {}, { current_password: string; new_password: string }>,
+  res: Response
+) => {
+  const userId = req.user?.id;
+  const { current_password, new_password } = req.body;
+  if (!userId) {
+    return res
+      .status(401)
+      .json({ message: "An error ocurred", error: "Unauthorized" });
+  }
+  try {
+    const account = await getAccountByIdQuery(userId);
+    if (account.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Account not found" });
+    }
+    const ok = await verifyPassword(current_password, account.rows[0].password);
+    if (!ok) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Current password is incorrect",
+      });
+    }
+    const hashed = await hashPassword(new_password);
+    await updatePasswordQuery(userId, hashed);
+    res.status(200).json({ message: "Password updated" });
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ message: "An error occurred", error: err.message });
@@ -143,4 +223,6 @@ export default {
   deleteAccount,
   updateAccount,
   createAccount,
+  createAdminAccount,
+  changePassword,
 };

@@ -14,7 +14,6 @@ export const generateScheduleForDay = async (date: Date) => {
 
   for (const row of plantilla.rows) {
     const scheduleDate = format(date, "yyyy-MM-dd" + " " + row.start_time);
-    console.log("Schedule Date:", scheduleDate, "Current:", current);
     const exists = await pool.query(
       `SELECT id FROM ScheduleCourt WHERE court_id = $1 AND schedule_date = $2 AND start_time = $3 AND end_time = $4`,
       [

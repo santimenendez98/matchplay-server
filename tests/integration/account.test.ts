@@ -16,7 +16,7 @@ describe("Account router", () => {
   afterEach(() => resetQueryStubs());
 
   describe("POST /api/account (public registration)", () => {
-    it("creates an account when payload is valid", async () => {
+    it("creates a user account and returns a token", async () => {
       setupQueryStubs([
         {
           match: "INSERT INTO Account",
@@ -29,6 +29,7 @@ describe("Account router", () => {
                 birthdate: "1998-09-18",
                 phone: "099111222",
                 account_type: "user",
+                password: "hashed",
               },
             ],
           },
@@ -38,36 +39,69 @@ describe("Account router", () => {
       const res = await request(app).post("/api/account").send({
         name: "Santi",
         email: "s@example.com",
-        password: "secret",
+        password: "secret-long",
         birthdate: "1998-09-18",
         phone: "099111222",
-        account_type: "user",
       });
 
       expect(res.status).toBe(201);
-      expect(res.body.data).toMatchObject({ id: "10", account_type: "user" });
+      expect(res.body.data.account).toMatchObject({
+        id: "10",
+        account_type: "user",
+      });
+      expect(res.body.data.account.password).toBeUndefined();
+      expect(typeof res.body.data.token).toBe("string");
+      expect(typeof res.body.data.refreshToken).toBe("string");
+    });
+
+    it("ignores account_type and always creates a user (no admin escalation)", async () => {
+      let insertedRole: string | undefined;
+      setupQueryStubs([
+        {
+          match: "INSERT INTO Account",
+          result: {
+            rows: [
+              {
+                id: "11",
+                account_type: "user",
+                email: "x@example.com",
+                password: "hashed",
+              },
+            ],
+          },
+        },
+      ]);
+
+      const res = await request(app).post("/api/account").send({
+        name: "x",
+        email: "x@example.com",
+        password: "secret-long",
+        birthdate: "1998-09-18",
+        phone: "099111222",
+        account_type: "admin", // attempted escalation
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.data.account.account_type).toBe("user");
     });
 
     it("rejects an invalid email", async () => {
       const res = await request(app).post("/api/account").send({
         name: "x",
         email: "not-an-email",
-        password: "secret",
+        password: "secret-long",
         birthdate: "1998-09-18",
         phone: "099111222",
-        account_type: "user",
       });
       expect(res.status).toBe(400);
     });
 
-    it("rejects an unknown account_type", async () => {
+    it("rejects short passwords", async () => {
       const res = await request(app).post("/api/account").send({
         name: "x",
         email: "x@example.com",
-        password: "secret",
+        password: "short",
         birthdate: "1998-09-18",
         phone: "099111222",
-        account_type: "creator",
       });
       expect(res.status).toBe(400);
     });

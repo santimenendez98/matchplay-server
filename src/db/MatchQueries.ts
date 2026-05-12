@@ -5,8 +5,11 @@ import { JoinMatchModel, MatchModel, SendMessageModel } from "../types/Match";
 ------------ MATCH ---------------
 */
 
-export const getMatchesQuery = async () => {
-  return pool.query<MatchModel>("SELECT * FROM Match");
+export const getMatchesQuery = async (limit = 50, offset = 0) => {
+  return pool.query<MatchModel>(
+    `SELECT * FROM Match ORDER BY id DESC LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
 };
 
 export const createMatchQuery = async (match: MatchModel) => {
@@ -78,13 +81,18 @@ export const getMatchByReservationQuery = async (reservation_id: string) => {
   );
 };
 
-export const getMatchesByPlayerQuery = async (player_id: string) => {
+export const getMatchesByPlayerQuery = async (
+  player_id: string,
+  limit = 50,
+  offset = 0
+) => {
   return pool.query<MatchModel>(
     `SELECT m.* FROM Match m
      INNER JOIN MatchPlayer mp ON mp.match_id = m.id
      WHERE mp.player_id = $1
-     ORDER BY mp.joined_at DESC`,
-    [player_id]
+     ORDER BY mp.joined_at DESC
+     LIMIT $2 OFFSET $3`,
+    [player_id, limit, offset]
   );
 };
 

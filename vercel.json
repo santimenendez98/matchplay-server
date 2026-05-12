@@ -13,6 +13,21 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
-  }
+    "NODE_ENV": "production",
+    "DISABLE_CRON": "true"
+  },
+  "crons": [
+    {
+      "path": "/api/cron/expired-pre-reserves",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/generate-schedule",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/check-schedule-status",
+      "schedule": "0,30 * * * *"
+    }
+  ]
 }

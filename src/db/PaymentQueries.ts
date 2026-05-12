@@ -1,9 +1,10 @@
 import { historyPaymentModel, refundBody } from "../types/Payment";
 import pool from "./connection";
 
-export const getAllPaymentsQuery = async () =>
+export const getAllPaymentsQuery = async (limit = 50, offset = 0) =>
   pool.query<historyPaymentModel>(
-    `SELECT * FROM Payment ORDER BY payment_date DESC`
+    `SELECT * FROM Payment ORDER BY payment_date DESC LIMIT $1 OFFSET $2`,
+    [limit, offset]
   );
 
 export const getPaymentByMatchAndAccount = async (
@@ -40,10 +41,15 @@ export const getPaymentByIdQuery = async (payment_id: string) => {
   );
 };
 
-export const getPaymentsByAccountQuery = async (account_id: string) => {
+export const getPaymentsByAccountQuery = async (
+  account_id: string,
+  limit = 50,
+  offset = 0
+) => {
   return pool.query<historyPaymentModel>(
-    `SELECT * FROM Payment WHERE user_id = $1 ORDER BY payment_date DESC`,
-    [account_id]
+    `SELECT * FROM Payment WHERE user_id = $1
+     ORDER BY payment_date DESC LIMIT $2 OFFSET $3`,
+    [account_id, limit, offset]
   );
 };
 

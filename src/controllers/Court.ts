@@ -11,16 +11,54 @@ import {
   getAllCourtQuery,
   deleteCourtQuery,
   getCourtByIdQuery,
+  getCourtsByComplexQuery,
   updateCourtQuery,
 } from "../db/CourtQueries";
+import { parsePagination } from "../services/pagination";
 
 export const getCourts = async (
   req: Request,
   res: Response<CourtModelSuccess | errorResponseModel>
 ) => {
   try {
-    const courts = await getAllCourtQuery();
+    const { limit, offset } = parsePagination(req.query);
+    const courts = await getAllCourtQuery(limit, offset);
     res.status(200).json({ message: "Court List", data: courts.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+export const getCourtsByComplex = async (
+  req: Request<{ complexId: string }>,
+  res: Response<CourtModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { complexId } = req.params;
+    const result = await getCourtsByComplexQuery(complexId);
+    res.status(200).json({ message: "Court List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+export const getCourt = async (
+  req: Request<paramsModels>,
+  res: Response<CourtGetModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { id } = req.params;
+    const result = await getCourtByIdQuery(id);
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Court not found" });
+    }
+    res
+      .status(200)
+      .json({ message: "Court found", data: result.rows[0] });
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ message: "An error occurred", error: err.message });

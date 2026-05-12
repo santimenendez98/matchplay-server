@@ -56,6 +56,7 @@ import {
   emitNotificationCourt,
 } from "../services/webSocket";
 import { getAccountByIdQuery } from "../db/AccountQueries";
+import { parsePagination } from "../services/pagination";
 import {
   createRefundQuery,
   getPaymentByReservation,
@@ -71,7 +72,8 @@ export const getReservations = async (
   res: Response<ReservationModelSuccess | errorResponseModel>
 ) => {
   try {
-    const result = await getAllReservationsQuery();
+    const { limit, offset } = parsePagination(req.query);
+    const result = await getAllReservationsQuery(limit, offset);
     res.status(200).json({ message: "Reservation List", data: result.rows });
   } catch (error) {
     const err = error as Error;
@@ -95,9 +97,19 @@ export const getReservationById = async (
         error: "Reservation not found",
       });
     }
+    const reservation = result.rows[0];
+    const isAdmin =
+      req.user?.rol === "admin" || req.user?.rol === "creator";
+    // For matches anyone authenticated can read; for plain reservations only
+    // the owner (or an admin) can.
+    if (!reservation.is_match && !isAdmin && req.user?.id !== reservation.account_id) {
+      return res
+        .status(403)
+        .json({ message: "An error ocurred", error: "Forbidden" });
+    }
     res.status(200).json({
       message: "Reservation found",
-      data: result.rows[0],
+      data: reservation,
     });
   } catch (error) {
     const err = error as Error;
@@ -121,7 +133,24 @@ export const getReservationsByAccount = async (
         error: "Missing account id",
       });
     }
-    const result = await getReservationsByAccountQuery(String(targetId));
+    // Non-admins cannot read other users' reservations
+    if (
+      accountId !== "me" &&
+      req.user?.id !== String(targetId) &&
+      req.user?.rol !== "admin" &&
+      req.user?.rol !== "creator"
+    ) {
+      return res.status(403).json({
+        message: "An error ocurred",
+        error: "Forbidden",
+      });
+    }
+    const { limit, offset } = parsePagination(req.query);
+    const result = await getReservationsByAccountQuery(
+      String(targetId),
+      limit,
+      offset
+    );
     res
       .status(200)
       .json({ message: "Reservation List", data: result.rows });
