@@ -1,32 +1,74 @@
 # matchplay-server
 
-# Variables de entorno
+Backend Node.js + TypeScript + Express + PostgreSQL para **MatchPlay**, una
+plataforma de reservas y gestión de partidos en complejos deportivos.
 
-Para iniciar el proyecto configurar estas variables para poder conectar la base de datos postgreSQL con Supabase.
+> Documentación completa en [`DOCUMENTATION.md`](./DOCUMENTATION.md):
+> arquitectura, modelo de datos, listado de endpoints, flujos de negocio,
+> cron jobs, WebSockets, tests y mejoras recomendadas.
 
-PORT=3000<br>
-API_URL=https://localhost:<br>
-DB_USER=postgres<br>
-DB_HOST=db.gacldvrhdiqcpbzwaavn.supabase.co<br>
-DB_DATABASE=postgres<br>
-DB_PASSWORD=snmm1809<br>
-DB_PORT=5432<br>
-JWT_SECRET=probando<br>
-CORS_ORIGIN=\*<br>
-DATABASE_URL=postgresql://user:password@host:port/database<br>
-NODE_ENV=development<br>
-SSL_CERT_PATH=/path/to/certificate.crt<br>
-SSL_KEY_PATH=/path/to/private.key<br>
+## Quickstart
+
+```bash
+npm install
+# crear un .env (ver más abajo)
+npm run dev            # nodemon + ts-node-dev
+```
+
+### Scripts
+
+| Script                 | Descripción                                       |
+|------------------------|---------------------------------------------------|
+| `npm run dev`          | Levanta el server en modo desarrollo con nodemon. |
+| `npm run build`        | Compila TypeScript a `./dist`.                    |
+| `npm start`            | Ejecuta el build compilado (producción).          |
+| `npm test`             | Corre la suite de Jest.                           |
+| `npm run test:watch`   | Tests en modo watch.                              |
+| `npm run test:coverage`| Reporte de cobertura en `./coverage`.             |
+
+## Variables de entorno
+
+Crear un archivo `.env` (no se commitea, está en `.gitignore`):
+
+```env
+PORT=3000
+DATABASE_URL=postgresql://user:password@host:port/database
+NODE_ENV=development
+JWT_SECRET=replace-me
+CORS_ORIGIN=http://localhost:5173
 MERCADO_PAGO_ACCESS_TOKEN=your_mercadopago_access_token
+```
 
-# MercadoPago Payment Method IDs:
+> ⚠️ Las credenciales actuales de Cloudinary están hardcodeadas en
+> `src/services/cloudinary.ts`. Antes de pasar a producción rotarlas y
+> moverlas a variables de entorno — ver "Mejoras recomendadas" en la
+> documentación.
 
-# - "visa" for Visa cards
+### MercadoPago Payment Method IDs
 
-# - "master" for Mastercard
+- `debit_card` — débito genérico
+- `debvisa` / `debmaster` — Visa Débito / Mastercard Débito
+- `visa` / `master` / `amex` — solo para referencia (el backend solo acepta
+  payment methods cuyo ID empieza por `deb`).
 
-# - "amex" for American Express
+## Endpoints destacados
 
-# - "debit_card" for generic debit cards
+- `POST /api/auth` — login (JWT).
+- `POST /api/account` — registro de usuario.
+- `GET  /api/scheduleday/court/:courtId?date=YYYY-MM-DD` — slots disponibles.
+- `POST /api/reservation` — reservar (con `is_match` opcional para partidos).
+- `POST /api/match/join` / `/leave` / `/message` — gestión de partidos.
+- `POST /api/payment/pay` / `/cash` / `/bank-transfer` — pagos por canal.
+- `GET  /api/reservation/account/me`, `/api/match/player/me`,
+  `/api/payment/account/me` — historial del usuario autenticado.
 
-# - "credit_card" for generic credit cards
+Listado completo: [`DOCUMENTATION.md#tabla-de-endpoints`](./DOCUMENTATION.md#tabla-de-endpoints).
+
+## Tests
+
+```bash
+npm test
+```
+
+15 suites · 122 tests. Usan Jest + supertest con `pg`, `mercadopago`,
+`cloudinary` y `services/webSocket` mockeados — no requieren base de datos.

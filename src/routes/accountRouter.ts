@@ -19,8 +19,8 @@ accountRouter.get("/", authMiddleware, rolMiddleware(["creator"]), getAccounts);
 accountRouter.get(
   "/:id",
   param("id")
-    .isEmpty()
-    .withMessage("ID must be empty")
+    .notEmpty()
+    .withMessage("ID is required")
     .isString()
     .withMessage("ID must be a string"),
   handleValidationErrors,
@@ -49,13 +49,13 @@ accountRouter.put(
 accountRouter.delete(
   "/:id",
   param("id")
-    .isEmpty()
-    .withMessage("ID must be empty")
+    .notEmpty()
+    .withMessage("ID is required")
     .isString()
     .withMessage("ID must be a string"),
   handleValidationErrors,
   authMiddleware,
-  rolMiddleware(["user"]),
+  rolMiddleware(["user", "admin"]),
   deleteAccount
 );
 

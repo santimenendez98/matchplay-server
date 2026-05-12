@@ -1,19 +1,52 @@
 import { Router } from "express";
 import {
   getReservations,
+  getReservationById,
+  getReservationsByAccount,
   createReservation,
   cancelReservation,
   cancelReservationRequest,
   cancelPreReservation,
 } from "../controllers/Reservation";
 import { authMiddleware, rolMiddleware } from "../middleware";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import { handleValidationErrors } from "../middleware/validatorErrors";
 
 export const reservationRouter = Router();
 
-//Get request
-reservationRouter.get("/", authMiddleware, getReservations);
+//Get all reservations (admin/creator only)
+reservationRouter.get(
+  "/",
+  authMiddleware,
+  rolMiddleware(["admin", "creator"]),
+  getReservations
+);
+
+//Get reservations for a specific account (or "me" for the authenticated user)
+reservationRouter.get(
+  "/account/:accountId",
+  param("accountId")
+    .notEmpty()
+    .withMessage("Account ID is required")
+    .isString()
+    .withMessage("Account ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  getReservationsByAccount
+);
+
+//Get a single reservation by id
+reservationRouter.get(
+  "/:id",
+  param("id")
+    .notEmpty()
+    .withMessage("Reservation ID is required")
+    .isString()
+    .withMessage("Reservation ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  getReservationById
+);
 
 //Create a reservation
 reservationRouter.post(

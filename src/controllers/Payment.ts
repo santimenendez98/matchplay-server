@@ -33,6 +33,8 @@ import {
   createPaymentHistoryQuery,
   getPaymentByIdQuery,
   getPaymentByReservationAndAccount,
+  getPaymentByReservation,
+  getPaymentsByAccountQuery,
   getRefundByPaymentIdQuery,
   updatePaymentStatusQuery,
   updateStatusRefundQuery,
@@ -561,6 +563,45 @@ export const createCashPayment = async (
     return res
       .status(400)
       .json({ error: "Error creating payment", message: err.message });
+  }
+};
+
+// Get payments for an account (or "me" for the authenticated user)
+export const getPaymentsByAccount = async (
+  req: Request<{ accountId: string }>,
+  res: Response
+) => {
+  try {
+    const { accountId } = req.params;
+    const targetId = accountId === "me" ? req.user?.id : accountId;
+    if (!targetId) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Missing account id",
+      });
+    }
+    const result = await getPaymentsByAccountQuery(String(targetId));
+    res.status(200).json({ message: "Payment List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Get all payments for a reservation (admins)
+export const getPaymentsByReservation = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const result = await getPaymentByReservation(id);
+    res
+      .status(200)
+      .json({ message: "Payment List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
   }
 };
 

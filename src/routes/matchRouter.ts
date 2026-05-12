@@ -1,6 +1,9 @@
 import { Router } from "express";
 import {
   getMatches,
+  getMatchById,
+  getMatchPlayers,
+  getMatchesByPlayer,
   joinMatch,
   leaveMatch,
   sendMessageToMatch,
@@ -14,6 +17,45 @@ export const matchRouter = Router();
 
 // Get all matches
 matchRouter.get("/", authMiddleware, getMatches);
+
+// Get matches for a specific player ("me" for the authenticated user)
+matchRouter.get(
+  "/player/:playerId",
+  param("playerId")
+    .notEmpty()
+    .withMessage("Player ID is required")
+    .isString()
+    .withMessage("Player ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  getMatchesByPlayer
+);
+
+// Get a single match by id
+matchRouter.get(
+  "/:id",
+  param("id")
+    .notEmpty()
+    .withMessage("Match ID is required")
+    .isString()
+    .withMessage("Match ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  getMatchById
+);
+
+// Get the list of players joined to a match
+matchRouter.get(
+  "/:id/players",
+  param("id")
+    .notEmpty()
+    .withMessage("Match ID is required")
+    .isString()
+    .withMessage("Match ID must be a string"),
+  handleValidationErrors,
+  authMiddleware,
+  getMatchPlayers
+);
 
 // Join a match
 matchRouter.post(
@@ -86,7 +128,6 @@ matchRouter.get(
     .withMessage("Match ID must be a string"),
   handleValidationErrors,
   authMiddleware,
-  rolMiddleware(["admin"]),
   historyChatMatch
 );
 

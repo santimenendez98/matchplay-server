@@ -94,8 +94,8 @@ export const deleteComplexData = async (
     const result = await deleteComplexQuery(id);
 
     return res.status(200).json({
-      message: "Complesx deleted successfully",
-      error: result.rows[0],
+      message: "Complex deleted successfully",
+      data: result.rows[0],
     });
   } catch (error) {
     const err = error as Error;

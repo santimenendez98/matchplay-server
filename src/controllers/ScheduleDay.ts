@@ -14,6 +14,7 @@ import {
   deleteScheduleById,
   updateScheduleById,
   getOverlappingSchedules,
+  getSchedulesByCourtAndDateQuery,
 } from "../db/ScheduleCourtQueries";
 
 export const getScheduleDay = async (
@@ -23,6 +24,27 @@ export const getScheduleDay = async (
   try {
     const scheduleDay = await getAllSchedules();
     res.status(200).json({ message: "Court List", data: scheduleDay.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+export const getScheduleByCourtAndDate = async (
+  req: Request<{ courtId: string }, {}, {}, { date?: string }>,
+  res: Response<scheduleDayModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { courtId } = req.params;
+    const { date } = req.query;
+    if (!date) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Query parameter `date` is required (yyyy-mm-dd)",
+      });
+    }
+    const result = await getSchedulesByCourtAndDateQuery(courtId, date);
+    res.status(200).json({ message: "Schedule List", data: result.rows });
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ message: "An error occurred", error: err.message });

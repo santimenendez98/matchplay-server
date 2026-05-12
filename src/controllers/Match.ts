@@ -17,6 +17,8 @@ import {
   updateStatusMatchQuery,
   getPlayerJoinedByMatchQuery,
   getMatchesQuery,
+  getMatchesByPlayerQuery,
+  getAllPlayersByMatchQuery,
   quitMatchQuery,
   sendMessageToMatchQuery,
   getMessagesByMatchQuery,
@@ -42,6 +44,64 @@ export const getMatches = async (
     res
       .status(500)
       .json({ message: "Error fetching matches", error: err.message });
+  }
+};
+
+export const getMatchById = async (
+  req: Request<paramsModels>,
+  res: Response<MatchGetModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { id } = req.params;
+    const result = await getMatchByIdQuery(id);
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "An error ocurred", error: "Match not found" });
+    }
+    res
+      .status(200)
+      .json({ message: "Match found", data: result.rows[0] });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+export const getMatchPlayers = async (
+  req: Request<paramsModels>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const players = await getAllPlayersByMatchQuery(id);
+    res
+      .status(200)
+      .json({ message: "Match players", data: players.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
+  }
+};
+
+export const getMatchesByPlayer = async (
+  req: Request<{ playerId: string }>,
+  res: Response
+) => {
+  try {
+    const { playerId } = req.params;
+    const targetId = playerId === "me" ? req.user?.id : playerId;
+    if (!targetId) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Missing player id",
+      });
+    }
+    const matches = await getMatchesByPlayerQuery(String(targetId));
+    res.status(200).json({ message: "Match List", data: matches.rows });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ message: "An error occurred", error: err.message });
   }
 };
 
@@ -246,13 +306,6 @@ export const historyChatMatch = async (
     const { id } = req.params;
 
     const messages = await getMessagesByMatchQuery(id);
-
-    if (messages.rowCount === 0) {
-      return res.status(404).json({
-        message: "No chat history found",
-        error: "Chat history not found",
-      });
-    }
 
     res.status(200).json({
       message: "Chat history retrieved successfully",

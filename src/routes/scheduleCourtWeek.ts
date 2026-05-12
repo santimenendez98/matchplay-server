@@ -74,7 +74,6 @@ scheduleCourtWeekRouter.post(
 // Update an existing schedule court week
 scheduleCourtWeekRouter.patch(
   "/:id",
-  authMiddleware,
   param("id")
     .notEmpty()
     .withMessage("ID is required")
@@ -105,6 +104,7 @@ scheduleCourtWeekRouter.patch(
     .isNumeric()
     .withMessage("Half price must be a number"),
   handleValidationErrors,
+  authMiddleware,
   rolMiddleware(["admin"]),
   updateScheduleCourtWeek
 );

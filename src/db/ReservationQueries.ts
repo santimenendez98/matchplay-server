@@ -8,6 +8,12 @@ export const getAllReservationsQuery = () =>
 export const getReservationWithIdQuery = (id: string) =>
   pool.query<ReservationModel>(`SELECT * FROM Reservation WHERE id = $1`, [id]);
 
+export const getReservationsByAccountQuery = (account_id: string) =>
+  pool.query<ReservationModel>(
+    `SELECT * FROM Reservation WHERE account_id = $1 ORDER BY reservation_date DESC, start_time DESC`,
+    [account_id]
+  );
+
 export const createReservationQuery = (reservation: ReservationModel) =>
   pool.query<ReservationModel>(
     `INSERT INTO Reservation (schedule_id, account_id, price, start_time, end_time, time_reserved, reservation_date, is_match, status) 

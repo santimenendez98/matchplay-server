@@ -13,6 +13,17 @@ export const getScheduleById = (id: number | string) =>
     id,
   ]);
 
+export const getSchedulesByCourtAndDateQuery = (
+  court_id: string,
+  schedule_date: string
+) =>
+  pool.query<scheduleDayModel>(
+    `SELECT * FROM ScheduleCourt
+     WHERE court_id = $1 AND schedule_date = $2
+     ORDER BY start_time ASC`,
+    [court_id, schedule_date]
+  );
+
 export const insertSchedule = (data: {
   court_id: string;
   schedule_date: string;

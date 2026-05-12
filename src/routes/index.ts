@@ -12,6 +12,10 @@ import paymentRouter from "./paymentRouter";
 
 export const router = Router();
 
+router.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
 router.use("/account", accountRouter);
 router.use("/auth", authRouter);
 router.use("/complex", complexRouter);

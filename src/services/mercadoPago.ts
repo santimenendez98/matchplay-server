@@ -182,7 +182,7 @@ export const generatePDF = async (html: string) => {
       timeout: 60000,
     });
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "networkidle0" as any });
     const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
     await browser.close();
     return pdfBuffer;

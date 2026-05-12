@@ -61,8 +61,8 @@ export const deleteCourt = async (
         .json({ message: "An error ocurred", error: "Court not found" });
     }
     res.status(200).json({
-      message: "An error ocurred",
-      error: "Court deleted successfully",
+      message: "Court deleted successfully",
+      data: result.rows[0],
     });
   } catch (error) {
     const err = error as Error;

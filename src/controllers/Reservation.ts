@@ -15,6 +15,7 @@ import {
   getAllReservationsQuery,
   createReservationQuery,
   getReservationWithIdQuery,
+  getReservationsByAccountQuery,
   createPreReserveQuery,
   updatePreReserveStatusQuery,
   updateReservationStatusQuery,
@@ -59,6 +60,7 @@ import {
   createRefundQuery,
   getPaymentByReservation,
   getPaymentByReservationAndAccount,
+  updatePaymentStatusByReservationQuery,
   updatePaymentStatusQuery,
 } from "../db/PaymentQueries";
 import { refundBody } from "../types/Payment";
@@ -71,6 +73,58 @@ export const getReservations = async (
   try {
     const result = await getAllReservationsQuery();
     res.status(200).json({ message: "Reservation List", data: result.rows });
+  } catch (error) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ message: "Error fetching reservations", error: err.message });
+  }
+};
+
+// Get reservation by id
+export const getReservationById = async (
+  req: Request<{ id: string }>,
+  res: Response<ReservationGetModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { id } = req.params;
+    const result = await getReservationWithIdQuery(id);
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "An error ocurred",
+        error: "Reservation not found",
+      });
+    }
+    res.status(200).json({
+      message: "Reservation found",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ message: "An error occurred", error: err.message });
+  }
+};
+
+// Get all reservations for the authenticated user (or for an account_id)
+export const getReservationsByAccount = async (
+  req: Request<{ accountId: string }>,
+  res: Response<ReservationModelSuccess | errorResponseModel>
+) => {
+  try {
+    const { accountId } = req.params;
+    const targetId = accountId === "me" ? req.user?.id : accountId;
+    if (!targetId) {
+      return res.status(400).json({
+        message: "An error ocurred",
+        error: "Missing account id",
+      });
+    }
+    const result = await getReservationsByAccountQuery(String(targetId));
+    res
+      .status(200)
+      .json({ message: "Reservation List", data: result.rows });
   } catch (error) {
     const err = error as Error;
     res
@@ -387,7 +441,10 @@ export const cancelPreReservation = async (
         await updatePreReserveStatusQuery(match.rows[0].id, "cancelled");
         await updateStatusMatchQuery(match.rows[0].id, "cancelled");
         await updateReservationStatusQuery(reservation.rows[0].id, "cancelled");
-        await updatePaymentStatusQuery(reservation.rows[0].id, "cancelled");
+        await updatePaymentStatusByReservationQuery(
+          reservation.rows[0].id,
+          "cancelled"
+        );
 
         // Create Refund if payment exists
         const payment = await getPaymentByReservation(reservation_id);
@@ -430,12 +487,6 @@ export const cancelReservationRequest = async (
     const { reservation_id, requested_by, reason } = req.body;
 
     const reservation = await getReservationWithIdQuery(reservation_id);
-    const schedule = await getScheduleById(reservation.rows[0].schedule_id);
-    const scheduleReserve =
-      schedule.rows[0].schedule_date + " " + reservation.rows[0].start_time;
-    const getCancelRequest = await getCancelRequestByReserveQuery(
-      reservation_id
-    );
 
     //Check if the reservation exists
     if (reservation.rows.length === 0) {
@@ -443,6 +494,13 @@ export const cancelReservationRequest = async (
         .status(404)
         .json({ message: "An error ocurred", error: "Reservation not found" });
     }
+
+    const schedule = await getScheduleById(reservation.rows[0].schedule_id);
+    const scheduleReserve =
+      schedule.rows[0].schedule_date + " " + reservation.rows[0].start_time;
+    const getCancelRequest = await getCancelRequestByReserveQuery(
+      reservation_id
+    );
 
     //Check if the reservation is already cancelled
     if (reservation.rows[0].status.includes("cancelled")) {
@@ -509,6 +567,8 @@ export const cancelReservationRequest = async (
 
 export default {
   getReservations,
+  getReservationById,
+  getReservationsByAccount,
   createReservation,
   cancelReservation,
   cancelReservationRequest,

@@ -78,6 +78,16 @@ export const getMatchByReservationQuery = async (reservation_id: string) => {
   );
 };
 
+export const getMatchesByPlayerQuery = async (player_id: string) => {
+  return pool.query<MatchModel>(
+    `SELECT m.* FROM Match m
+     INNER JOIN MatchPlayer mp ON mp.match_id = m.id
+     WHERE mp.player_id = $1
+     ORDER BY mp.joined_at DESC`,
+    [player_id]
+  );
+};
+
 /*
 ----------- MatchPlayer --------------
 */
