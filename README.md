@@ -59,12 +59,12 @@ CRON_SECRET=replace-with-strong-secret
 
 Vercel Hobby solo permite crons diarios. El `vercel.json` declara
 `/api/cron/daily-maintenance` a las 03:00 (corre los tres jobs en
-secuencia). Para los jobs de alta frecuencia (cada 5 / 30 min) se incluye
-un workflow de GitHub Actions en `.github/workflows/cron.yml` — solo hace
-falta configurar dos secrets en el repo:
-
-- `API_BASE_URL` — la URL pública del deploy (ej: `https://matchplay.vercel.app`).
-- `CRON_SECRET` — el mismo valor que el env var del backend.
+secuencia: `check-schedule-status`, `generate-schedule` y
+`expired-pre-reserves`). Si en algún momento necesitás los jobs de alta
+frecuencia (cada 5 / 30 min), podés disparar manualmente
+`/api/cron/expired-pre-reserves` y `/api/cron/check-schedule-status` con un
+scheduler externo (cron-job.org, GitHub Actions, Upstash QStash, etc.)
+usando `Authorization: Bearer $CRON_SECRET`.
 
 Detalles en [`DOCUMENTATION.md#cron`](./DOCUMENTATION.md#cron).
 
